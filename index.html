@@ -315,7 +315,7 @@
         const y = e.clientY - containerRect.top - offsetY;
         balloon.style.left = x + 'px';
         balloon.style.top = y + 'px';
-        updateLinesForBalloon(balloon);
+        if (leaderLineMode) updateLinesForBalloon(balloon);
       });
 
       document.addEventListener('mouseup', e => {
@@ -422,35 +422,29 @@
 	function removeLinesConnectedTo(balloon) {
 	  const left = parseFloat(balloon.style.left);
 	  const top = parseFloat(balloon.style.top);
-	
-	  // Use balloonLayer rect to calculate center relative to container
-	  const containerRect = balloonLayer.getBoundingClientRect();
-	  const balloonRect = balloon.getBoundingClientRect();
-	
-	  const width = balloonRect.width;
-	  const height = balloonRect.height;
-	
-	  // Calculate center using style.left/top + half width/height
+	  const rect = balloon.getBoundingClientRect();
+	  const width = rect.width;
+	  const height = rect.height;
 	  const centerX = left + width / 2;
 	  const centerY = top + height / 2;
-	
-	  // Filter lines and remove SVG for connected lines
+
+	  // Remove matching lines
 	  const newLines = [];
 	  lines.forEach(line => {
-	    const isConnected = (
-	      approxEqual(line.fromX, centerX) && approxEqual(line.fromY, centerY)
-	    ) || (
-	      approxEqual(line.toX, centerX) && approxEqual(line.toY, centerY)
-	    );
-	
-	    if (isConnected) {
-	      // Remove SVG element
-	      if (line.svgLine) line.svgLine.remove();
-	    } else {
-	      newLines.push(line);
-	    }
+		const isConnected = (
+		  approxEqual(line.fromX, centerX) && approxEqual(line.fromY, centerY)
+		) || (
+		  approxEqual(line.toX, centerX) && approxEqual(line.toY, centerY)
+		);
+
+		if (isConnected) {
+		  // Remove SVG element
+		  if (line.svgLine) line.svgLine.remove();
+		} else {
+		  newLines.push(line);
+		}
 	  });
-	
+
 	  lines = newLines;
 	}
 
