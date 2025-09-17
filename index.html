@@ -309,14 +309,16 @@
       });
 
       document.addEventListener('mousemove', e => {
-        if (!isDragging) return;
-        const containerRect = balloonLayer.getBoundingClientRect();
-        const x = e.clientX - containerRect.left - offsetX;
-        const y = e.clientY - containerRect.top - offsetY;
-        balloon.style.left = x + 'px';
-        balloon.style.top = y + 'px';
-        if (leaderLineMode) updateLinesForBalloon(balloon);
-      });
+		  if (!isDragging) return;
+		  const containerRect = balloonLayer.getBoundingClientRect();
+		  const x = e.clientX - containerRect.left - offsetX;
+		  const y = e.clientY - containerRect.top - offsetY;
+		  balloon.style.left = x + 'px';
+		  balloon.style.top = y + 'px';
+
+		  // Always update lines connected to balloon
+		  updateLinesForBalloon(balloon);
+		});
 
       document.addEventListener('mouseup', e => {
         if (isDragging) {
@@ -382,8 +384,6 @@
       });
     }
 
-    // Update lines connected to a balloon when it moves (leaderLineMode only)
-	// Update lines connected to a balloon when it moves or color changes
 	function updateLinesForBalloon(balloon) {
 	  const rect = balloon.getBoundingClientRect();
 	  const containerRect = balloonLayer.getBoundingClientRect();
@@ -392,25 +392,23 @@
 	  const newColor = balloon.style.backgroundColor;
 
 	  lines.forEach((line, index) => {
-		const fromMatch = approxEqual(line.fromX, line.balloonFromX) && approxEqual(line.fromY, line.balloonFromY);
-		const toMatch = approxEqual(line.toX, line.balloonToX) && approxEqual(line.toY, line.balloonToY);
-		// If line endpoint matches balloon center, update pos & color
-		if (fromMatch) {
+		let updated = false;
+
+		if (line.fromBalloon === balloon) {
 		  line.fromX = centerX;
 		  line.fromY = centerY;
-		  line.balloonFromX = centerX;
-		  line.balloonFromY = centerY;
 		  line.color = newColor;
-		  updateLineSVG(index, line);
+		  updated = true;
 		}
-		if (toMatch) {
+
+		if (line.toBalloon === balloon) {
 		  line.toX = centerX;
 		  line.toY = centerY;
-		  line.balloonToX = centerX;
-		  line.balloonToY = centerY;
 		  line.color = newColor;
-		  updateLineSVG(index, line);
+		  updated = true;
 		}
+
+		if (updated) updateLineSVG(index, line);
 	  });
 	}
 
@@ -420,25 +418,11 @@
 
     // Remove lines connected to a balloon (on delete)
 	function removeLinesConnectedTo(balloon) {
-	  const left = parseFloat(balloon.style.left);
-	  const top = parseFloat(balloon.style.top);
-	  const rect = balloon.getBoundingClientRect();
-	  const width = rect.width;
-	  const height = rect.height;
-	  const centerX = left + width / 2;
-	  const centerY = top + height / 2;
-
-	  // Remove matching lines
 	  const newLines = [];
 	  lines.forEach(line => {
-		const isConnected = (
-		  approxEqual(line.fromX, centerX) && approxEqual(line.fromY, centerY)
-		) || (
-		  approxEqual(line.toX, centerX) && approxEqual(line.toY, centerY)
-		);
+		const isConnected = line.fromBalloon === balloon || line.toBalloon === balloon;
 
 		if (isConnected) {
-		  // Remove SVG element
 		  if (line.svgLine) line.svgLine.remove();
 		} else {
 		  newLines.push(line);
@@ -462,7 +446,7 @@
 	}
 
     // Draw a new line in SVG and keep in lines, Modified to accept color parameter
-    function drawLineBetween(x1, y1, x2, y2, color = balloonColorInput.value) {
+    function drawLineBetween(x1, y1, x2, y2, color = balloonColorInput.value, fromBalloon = null, toBalloon = null) {
 	  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
 	  line.setAttribute('x1', x1);
 	  line.setAttribute('y1', y1);
@@ -477,12 +461,10 @@
 		fromY: y1,
 		toX: x2,
 		toY: y2,
-		balloonFromX: x1,
-		balloonFromY: y1,
-		balloonToX: x2,
-		balloonToY: y2,
 		color: color,
 		svgLine: line,
+		fromBalloon: fromBalloon,
+		toBalloon: toBalloon
 	  });
 	}
 	
@@ -507,7 +489,7 @@
 		  pendingBalloon = { balloon, centerX: x, centerY: y };
 		} else {
 		  saveStateToHistory();
-		  drawLineBetween(pendingBalloon.centerX, pendingBalloon.centerY, x, y, pendingBalloon.balloon.style.backgroundColor);
+		  drawLineBetween(pendingBalloon.centerX, pendingBalloon.centerY, x, y, pendingBalloon.balloon.style.backgroundColor, pendingBalloon.balloon, null);
 		  pendingBalloon = null;
 		}
 	  } else {
