@@ -31,7 +31,7 @@
     /* Keep the inputs/buttons sized in absolute units as well */
     #controls label { font-size: 11pt; }
     #controls input, #controls button, #controls select {
-      font-size: 11pt;
+      font-size: 9pt;
       height: 0.34in;
       padding: 0 0.09in;
       box-sizing: border-box;
@@ -39,7 +39,7 @@
     #controls input[type="number"] { width: 0.6in; }
     #controls input[type="color"] { width: 0.4in; height: 0.34in; padding: 0; }
     #controls input[type="text"] { width: 1.6in; }
-    #controls button { min-width: 0.9in; }
+    #controls button { min-width: 0.7in; }
 
     /* canvas and layers */
     #pdf-canvas {
@@ -86,6 +86,34 @@
       user-select: none;
       white-space: nowrap;
     }
+	
+	#textbox-layer {
+	  position: absolute;
+	  top: 0;
+	  left: 0;
+	  z-index: 15; /* above balloons */
+	  pointer-events: none; /* individual textboxes will allow typing */
+	  width: 100%;
+	  height: 100%;
+	}
+
+	.textbox {
+	  position: absolute;
+	  padding: 2px;
+	  resize: both;
+	  overflow: auto;
+	  cursor: text;
+	  outline: none;
+	  border: 1px solid #333; 					/* solid outline */
+	  border-radius: 4px;
+	  background: rgba(255,255,255,0.8);
+	  pointer-events: auto; 					/* allow editing */
+	}
+	
+	.textbox:focus {
+	  border: 2px solid #007bff;   				/* blue border when editing */
+	  background: rgba(255,255,255,1);
+	}
   </style>
 
   <!-- PDF.js -->
@@ -101,7 +129,7 @@
   <div id="controls">
     <!-- Zoom controls -->
     <button id="zoom-out" title="Zoom out">−</button>
-    <input id="zoom-range" type="range" min="50" max="300" step="10" value="100" />
+    <input id="zoom-range" type="range" min="50" max="500" step="10" value="100" />
     <span id="zoom-level">100%</span>
 	<button id="zoom-in" title="Zoom in">+</button>
 
@@ -116,12 +144,15 @@
     <button id="save-pdf-btn">Save as PDF</button>
     <button id="undo-btn">Undo</button>
     <button id="toggle-line-mode">Enable Leader Line Mode</button>
+	<button id="toggle-textbox">Enable Text Box Mode</button>
+	
   </div>
 
   <div id="container">
     <canvas id="pdf-canvas"></canvas>
     <svg id="line-layer"></svg>
     <div id="balloon-layer"></div>
+	<div id="textbox-layer"></div>
   </div>
 
   <script>
@@ -135,6 +166,7 @@
     let currentImage = null;        // store loaded image (if any)
 	let isRendering = false;
 	let pendingRender = null;
+	let isTextBoxMode = false;
 
     const canvas = document.getElementById('pdf-canvas');
     const ctx = canvas.getContext('2d');
@@ -342,7 +374,28 @@
       });
       return max + 1;
     }
+	
+	// Helper: split balloon label into base number + suffix (e.g. "9a" -> { base: 9, suffix: "a" })
+	function splitLabel(text) {
+	  const t = String(text || '').trim();
+	  const match = t.match(/^(\d+)(.*)$/i); 
+	  if (!match) return { base: NaN, suffix: '' };
+	  return { base: parseInt(match[1], 10), suffix: (match[2] || '') };
+	}
 
+	// Renumber balloons after deleting a balloon whose base number was `deletedBase`
+	// Preserves suffixes (e.g. '9a' -> '8a') for any balloon with base > deletedBase
+	function renumberAfterDeletion(deletedBase) {
+	  if (!Number.isFinite(deletedBase)) return;
+	  balloonLayer.querySelectorAll('.balloon').forEach(b => {
+		const { base, suffix } = splitLabel(b.textContent);
+		if (!Number.isNaN(base) && base > deletedBase) {
+		  b.textContent = (base - 1) + suffix;
+		}
+	  });
+	}
+	
+	
     // drag/edit/delete balloons (same logic as before)
     function attachBalloonEvents(balloon) {
       let isDragging = false;
@@ -403,20 +456,25 @@
       });
 
       balloon.addEventListener('contextmenu', e => {
-        e.preventDefault();
-        e.stopPropagation();
-        const deletedNum = parseInt(balloon.textContent);
-        const shouldRenumber = confirm('Renumber balloons after deleting?');
-        balloon.remove();
-        removeLinesConnectedTo(balloon);
-        if (shouldRenumber) {
-          balloonLayer.querySelectorAll('.balloon').forEach(b => {
-            const num = parseInt(b.textContent);
-            if (!isNaN(num) && num > deletedNum) b.textContent = num - 1;
-          });
-        }
-        saveStateToHistory();
-      });
+		  e.preventDefault();
+		  e.stopPropagation();
+
+		  // determine numeric base of deleted balloon (handles "9a" etc.)
+		  const { base: deletedBase } = splitLabel(balloon.textContent);
+
+		  const shouldRenumber = confirm('Renumber balloons after deleting?');
+
+		  // remove balloon and its connected lines
+		  balloon.remove();
+		  removeLinesConnectedTo(balloon);
+
+		  if (shouldRenumber) {
+			renumberAfterDeletion(deletedBase);
+		  }
+
+		  saveStateToHistory();
+		});
+
     }
 
     function updateLinesForBalloon(balloon) {
@@ -449,17 +507,18 @@
     }
 
     function removeLinesConnectedTo(balloon) {
-      const newLines = [];
-      lines.forEach(line => {
-        const isConnected = line.fromBalloon === balloon || line.toBalloon === balloon;
-        if (isConnected) {
-          if (line.svgLine) line.svgLine.remove();
-          if (line.fromHandle) line.fromHandle.remove();
-          if (line.toHandle) line.toHandle.remove();
-        } else newLines.push(line);
-      });
-      lines = newLines;
-    }
+	  lines = lines.filter(line => {
+		const connected = (line.fromBalloon?.isSameNode(balloon)) ||
+						  (line.toBalloon?.isSameNode(balloon));
+		if (connected) {
+		  line.svgLine?.remove();
+		  line.fromHandle?.remove();
+		  line.toHandle?.remove();
+		}
+		return !connected;
+	  });
+	}
+
 
     function updateLineSVG(index, line) {
       const svgLine = line.svgLine;
@@ -554,6 +613,51 @@
 
       return handle;
     }
+	
+	// -------------Text Box Drag Function -----------------------//
+	function makeTextBoxDraggable(tb) {
+	  let isDragging = false;
+	  let offsetX = 0, offsetY = 0;
+
+	  tb.addEventListener("mousedown", e => {
+		// Only start drag if:
+		// - clicked directly on the box
+		// - not inside text editing
+		// - not on the resize handle
+		if (e.target !== tb) return;
+
+		const rect = tb.getBoundingClientRect();
+		const border = 8; // pixels near edge = resize zone
+		const withinResize =
+		  e.offsetX > rect.width - border ||
+		  e.offsetY > rect.height - border;
+
+		if (withinResize) return; // let browser handle resizing
+
+		isDragging = true;
+		const containerRect = textboxLayer.getBoundingClientRect();
+		offsetX = e.clientX - rect.left;
+		offsetY = e.clientY - rect.top;
+		e.preventDefault();
+	  });
+
+	  document.addEventListener("mousemove", e => {
+		if (!isDragging) return;
+		const containerRect = textboxLayer.getBoundingClientRect();
+		const x = e.clientX - containerRect.left - offsetX;
+		const y = e.clientY - containerRect.top - offsetY;
+		tb.style.left = x + "px";
+		tb.style.top = y + "px";
+	  });
+
+	  document.addEventListener("mouseup", () => {
+		if (isDragging) {
+		  isDragging = false;
+		  saveStateToHistory();
+		}
+	  });
+	}
+	
 
     // ---------- leader line mode toggle + clicks to create balloons/lines ----------
     document.getElementById('toggle-line-mode').addEventListener('click', () => {
@@ -563,7 +667,10 @@
     });
 
     canvas.addEventListener('click', e => {
-      const rect = canvas.getBoundingClientRect();
+	  
+	  if (isTextBoxMode) return; // skip balloon creation if text mode is on
+      
+	  const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       const textSize = parseInt(document.getElementById('text-size').value) || 16;
@@ -583,7 +690,62 @@
         createNewBalloon(x, y, textSize);
       }
     });
+	
+	// --------------Text Box -------------------------------
+	document.getElementById("toggle-textbox").addEventListener("click", () => {
+	  isTextBoxMode = !isTextBoxMode;
+	  document.getElementById("toggle-textbox").textContent =
+		isTextBoxMode ? "Disable Text Box Mode" : "Enable Text Box Mode";
 
+	  // allow clicks to reach the text layer when active
+	  textboxLayer.style.pointerEvents = isTextBoxMode ? "auto" : "none";
+	});
+	
+	let currentTextBox = null;
+	let startX, startY;
+
+	const textboxLayer = document.getElementById("textbox-layer");
+
+	textboxLayer.addEventListener("mousedown", e => {
+	  if (!isTextBoxMode) return;
+	  
+	  if (e.target.classList.contains("textbox") || e.target.closest(".textbox")) {
+		return; // If clicking inside an existing textbox, do nothing (let it be resized/edited)
+	  }
+	  
+	  const startX = e.offsetX;
+	  const startY = e.offsetY;
+	  
+	  currentTextBox = document.createElement("div"); 
+	  
+	  currentTextBox.classList.add("textbox");
+	  currentTextBox.contentEditable = "true";
+	  currentTextBox.style.left = startX + "px";
+	  currentTextBox.style.top = startY + "px";
+	  currentTextBox.style.minWidth = "50px";
+	  currentTextBox.style.minHeight = "20px";
+	  currentTextBox.style.fontSize = document.getElementById("text-size").value + "px";
+
+	  textboxLayer.appendChild(currentTextBox);
+	  makeTextBoxDraggable(currentTextBox);
+
+	  function resize(eMove) {
+		currentTextBox.style.width = (eMove.offsetX - startX) + "px";
+		currentTextBox.style.height = (eMove.offsetY - startY) + "px";
+	  }
+
+	  function stop() {
+		textboxLayer.removeEventListener("mousemove", resize);
+		textboxLayer.removeEventListener("mouseup", stop);
+		currentTextBox.focus();
+		saveStateToHistory();
+	  }
+
+	  textboxLayer.addEventListener("mousemove", resize);
+	  textboxLayer.addEventListener("mouseup", stop);
+	});
+
+	
     // ---------- export to PDF (lines + balloons scaled back to original doc size) ----------
     document.getElementById('save-pdf-btn').addEventListener('click', async () => {
       try {
@@ -645,7 +807,45 @@
           const yOffset = scaledFontSize * 0.35;
           pdf.text(text, scaledLeft + scaledWidth/2, scaledTop + scaledHeight/2 + yOffset, { align: 'center' });
         });
+		
+	  // Text box export
+	  textboxLayer.querySelectorAll('.textbox').forEach(tb => {
+		  const left = parseFloat(tb.style.left) || 0;
+		  const top = parseFloat(tb.style.top) || 0;
+		  const width = parseFloat(tb.style.width) || tb.offsetWidth;
+		  const height = parseFloat(tb.style.height) || tb.offsetHeight;
+		  const text = tb.innerText.trim();
+		  const fontSize = parseFloat(window.getComputedStyle(tb).fontSize) || 12;
 
+		  if (!text) return;
+
+		  const scaledLeft = left * scaleX;
+		  const scaledTop  = top  * scaleY;
+		  const scaledWidth = width * scaleX;
+		  const scaledHeight = height * scaleY;
+		  const scaledFontSize = fontSize * scaleX;
+
+		  // Draw solid white background
+		  pdf.setFillColor(255, 255, 255);   // white
+		  pdf.rect(scaledLeft, scaledTop, scaledWidth, scaledHeight, "F"); // F = fill
+		  
+		  
+		  // Draw solid border
+		  pdf.setDrawColor(0, 0, 0); // black
+		  pdf.setLineWidth(1);
+		  pdf.rect(scaledLeft, scaledTop, scaledWidth, scaledHeight);
+
+		  // Draw text inside
+		  pdf.setFont("helvetica", "normal");
+		  pdf.setFontSize(scaledFontSize);
+		  pdf.setTextColor(0,0,0);
+
+		  text.split(/\n/).forEach((line, i) => {
+			pdf.text(line, scaledLeft + 4, scaledTop + scaledFontSize + i * (scaledFontSize * 1.2));
+		  });
+		});
+	  
+	  
         pdf.save(filename + '.pdf');
       } catch (err) {
         console.error('Failed to save PDF', err);
@@ -681,7 +881,7 @@
     // and scale/move existing balloons + lines so they stay at the same places
     function setPdfScale(newScale) {
       // clamp between allowed range:
-      newScale = Math.max(0.5, Math.min(3.0, newScale));
+      newScale = Math.max(0.5, Math.min(5.0, newScale));
       const oldW = canvas.width || 0;
       const oldH = canvas.height || 0;
 
@@ -792,7 +992,7 @@
       }
     }
 
-    // ---------- zoom UI wiring ----------
+    // ---------- zoom UI wiring ---------- //
     zoomRange.addEventListener('input', () => {
       const val = Number(zoomRange.value) / 100;
       setPdfScale(val);
@@ -802,16 +1002,24 @@
       setPdfScale(newPerc / 100);
     });
     document.getElementById('zoom-in').addEventListener('click', () => {
-      const newPerc = Math.min(300, Math.round(scale*100) + 10);
+      const newPerc = Math.min(500, Math.round(scale*100) + 10);
       setPdfScale(newPerc / 100);
     });
+	
+	// --------------Delete text box with delete key------------- //
+	document.addEventListener("keydown", e => {
+	  if ((e.key === "Delete") &&
+		  document.activeElement.classList.contains("textbox")) {
+		const tb = document.activeElement;
+		tb.remove();
+		saveStateToHistory();
+	  }
+	});
 
-    // ---------- initial UI values ----------
+    // ---------- initial UI values ---------- //
     zoomRange.value = Math.round(scale * 100);
     zoomLevelSpan.textContent = Math.round(scale * 100) + '%';
 
-    // (The rest of your functions like createLineHandle etc. are above)
-    // Note: you can keep the old drawLine/handle selection code you had already.
   </script>
 </body>
 </html>
