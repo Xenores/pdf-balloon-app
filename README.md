@@ -17,3 +17,27 @@ v1.3
 v1.4
 	Line width/thickness set to 1 (was 2). (Looks better in final pdf)
 	'+' button added for Zoom Slider
+ 
+ v1.5
+	Now renumbering ignores suffix and update the 'base'
+		Eg: "9a" 	→ { base: 9, suffix: "a" }
+			"9b" 	→ { base: 9, suffix: "b" }
+			"9f-g" 	→ { base: 9, suffix: "f-g" }
+			"10-x1" → { base: 10, suffix: "-x1" }
+v1.6
+	Text box can be added, resized, edited.
+	If the text box is empty or has few line, need to click on the right-edge of text for it to be selectable/editable. (Empty text box don't get saved in final pdf)
+	Button min size changed from 0.9 to 0.7
+
+v1.6.1
+	Removed redundant code. 
+	Text box changed from dotted line to solid line. 
+	
+	
+	
+Note: 
+	The size of bubble is linked to the zoom level. A Text Size = 30 bubble at zoom 400% will be a little smaller than Text Size = 30 bubble atzoom 200%. 
+	The quality and file size of saved pdf will depend on the zoom level at which it is saved. Pdf saved at zoom = 200% is smaller than Pdf saved at zoom = 500%.
+	
+	
+	
