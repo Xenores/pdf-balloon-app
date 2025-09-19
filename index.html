@@ -886,6 +886,7 @@
 		  const width = parseFloat(tb.style.width) || tb.offsetWidth;
 		  const height = parseFloat(tb.style.height) || tb.offsetHeight;
 
+		  const fontSize = parseFloat(window.getComputedStyle(tb).fontSize) || 12;
 		  const scaledLeft = left * scaleX;
 		  const scaledTop  = top  * scaleY;
 		  const scaledWidth = width * scaleX;
@@ -914,7 +915,6 @@
 			// Remove trailing empty lines for cleaner output, if desired
 			while (lines.length && lines[lines.length - 1].trim() === '') lines.pop();
 			
-			const fontSize = parseFloat(window.getComputedStyle(tb).fontSize) || 12;
 			const lineHeight = scaledFontSize * 1.2;
 			let y = scaledTop + scaledFontSize;
 			
