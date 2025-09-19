@@ -911,9 +911,11 @@
 		  pdf.setFontSize(scaledFontSize);
 		  pdf.setTextColor(0,0,0);
 
-		  text.split(/\n/).forEach((line, i) => {
-			pdf.text(line, scaledLeft + 4, scaledTop + scaledFontSize + i * (scaledFontSize * 1.2));
-		  });
+		  const wrapped = pdf.splitTextToSize(text, scaledWidth - 8); // 8px padding
+			pdf.text(wrapped, scaledLeft + 4, scaledTop + scaledFontSize, {
+			  maxWidth: scaledWidth - 8,
+			  align: "left"
+			});
 		});
 	  
 	  
