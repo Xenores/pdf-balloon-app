@@ -885,10 +885,6 @@
 		  const top = parseFloat(tb.style.top) || 0;
 		  const width = parseFloat(tb.style.width) || tb.offsetWidth;
 		  const height = parseFloat(tb.style.height) || tb.offsetHeight;
-		  const text = tb.innerText.trim();
-		  const fontSize = parseFloat(window.getComputedStyle(tb).fontSize) || 12;
-
-		  if (!text) return;
 
 		  const scaledLeft = left * scaleX;
 		  const scaledTop  = top  * scaleY;
@@ -911,14 +907,30 @@
 		  pdf.setFontSize(scaledFontSize);
 		  pdf.setTextColor(0,0,0);
 
-		  const wrapped = pdf.splitTextToSize(text, scaledWidth - 8); // 8px padding
-			pdf.text(wrapped, scaledLeft + 4, scaledTop + scaledFontSize, {
-			  maxWidth: scaledWidth - 8,
-			  align: "left"
-			});
+		  let textHtml = tb.innerHTML.replace(/<br>/gi, '\n').replace(/<\/div>/gi, '\n');
+		  let lines = textHtml
+			  .replace(/<.*?>/g, '') // Remove all tags
+			  .split('\n');
+			// Remove trailing empty lines for cleaner output, if desired
+			while (lines.length && lines[lines.length - 1].trim() === '') lines.pop();
+			
+			const fontSize = parseFloat(window.getComputedStyle(tb).fontSize) || 12;
+			const lineHeight = scaledFontSize * 1.2;
+			let y = scaledTop + scaledFontSize;
+			
+			for (let i = 0; i < lines.length; ++i) {
+			  // Even for blank lines, move y down
+			  if (lines[i].trim() !== '') {
+			    pdf.text(lines[i], scaledLeft + 4, y, {
+			      maxWidth: scaledWidth - 8,
+			      align: "left"
+			    });
+			  }
+			  y += lineHeight;
+			}
+		 
 		});
-	  
-	  
+		  
         pdf.save(filename + '.pdf');
       } catch (err) {
         console.error('Failed to save PDF', err);
