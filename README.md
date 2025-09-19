@@ -1,3 +1,5 @@
+
+
 v1.0
 	Fixed export pdf being cropped out. 
 	Dimensions of pdf and images can now be seen in Console.
@@ -17,8 +19,8 @@ v1.3
 v1.4
 	Line width/thickness set to 1 (was 2). (Looks better in final pdf)
 	'+' button added for Zoom Slider
- 
- v1.5
+	
+v1.5
 	Now renumbering ignores suffix and update the 'base'
 		Eg: "9a" 	→ { base: 9, suffix: "a" }
 			"9b" 	→ { base: 9, suffix: "b" }
@@ -32,6 +34,14 @@ v1.6
 v1.6.1
 	Removed redundant code. 
 	Text box changed from dotted line to solid line. 
+	Known Error: Position relative to pdf change when Zoom is changed and undo is clicked. 
+
+v1.6.2
+	Fixed position of bubble and line changing relative to pdf when zoom is changed and 'Undo' is clickedPosition
+
+v1.7
+	Added 'Text Box Size' option to change font size of text inside text box. 
+	Button highlight when Leader Line Mode and Text Box Mode are enabled.
 	
 	
 	
