@@ -29,7 +29,7 @@
     }
 
     /* Keep the inputs/buttons sized in absolute units as well */
-    #controls label { font-size: 11pt; }
+    #controls label { font-size: 10pt; }
     #controls input, #controls button, #controls select {
       font-size: 9pt;
       height: 0.34in;
@@ -40,6 +40,19 @@
     #controls input[type="color"] { width: 0.4in; height: 0.34in; padding: 0; }
     #controls input[type="text"] { width: 1.6in; }
     #controls button { min-width: 0.7in; }
+	#controls input[type="range"] { width: 1.2in;   /* adjust to your liking (e.g. 0.8in, 2in) */
+			  height: 0.2in;  /* makes the slider thinner */
+			  padding: 0;
+	}
+	#controls button.active-btn {
+	  background: #007bff;   /* blue background */
+	  color: white;          /* white text */
+	  border: 1px solid #0056b3;
+	}
+
+	#controls button.active-btn:hover {
+	  background: #0056b3;   /* darker blue on hover */
+	}
 
     /* canvas and layers */
     #pdf-canvas {
@@ -135,7 +148,7 @@
 
     <!-- Existing controls -->
     <input type="file" id="file-input" accept=".pdf,.png,.jpg,.jpeg,.webp" />
-    <label for="text-size">Text Size:</label>
+    <label for="text-size">Balloon Text Size:</label>
     <input type="number" id="text-size" value="16" min="8" max="100" step="1" />
     <label for="balloon-color">Balloon Color:</label>
     <input type="color" id="balloon-color" value="#ff0000" />
@@ -145,6 +158,8 @@
     <button id="undo-btn">Undo</button>
     <button id="toggle-line-mode">Enable Leader Line Mode</button>
 	<button id="toggle-textbox">Enable Text Box Mode</button>
+	<label for="textbox-size">Text Box Size:</label>
+	<input type="number" id="textbox-size" value="14" min="8" max="100" step="1" />
 	
   </div>
 
@@ -174,6 +189,7 @@
     const lineLayer = document.getElementById('line-layer');
     const exportFilenameInput = document.getElementById('export-filename');
     const balloonColorInput = document.getElementById('balloon-color');
+	const textboxSizeInput = document.getElementById("textbox-size");
 
     // Zoom UI
     const zoomRange = document.getElementById('zoom-range');
@@ -189,36 +205,66 @@
 
     // ---------- helper / history functions ----------
     function saveStateToHistory() {
-      const balloonData = [];
-      balloonLayer.querySelectorAll('.balloon').forEach(balloon => {
-        balloonData.push({
-          text: balloon.textContent,
-          left: balloon.style.left,
-          top: balloon.style.top,
-          width: balloon.style.width,
-          height: balloon.style.height,
-          fontSize: balloon.style.fontSize,
-          lineHeight: balloon.style.lineHeight,
-          color: balloon.style.backgroundColor,
-        });
-      });
-      const linesCopy = lines.map(l => ({ ...l, fromBalloon: null, toBalloon: null })); // remove DOM refs in copy
-      historyStack.push({ balloons: balloonData, lines: linesCopy });
-    }
+	  const balloonData = [];
+	  balloonLayer.querySelectorAll('.balloon').forEach(balloon => {
+		const left = parseFloat(balloon.style.left) || 0;
+		const top  = parseFloat(balloon.style.top) || 0;
+		const width = balloon.offsetWidth;
+		const height = balloon.offsetHeight;
+
+		// Save normalized center coordinates (independent of zoom)
+		const centerX = left + width / 2;
+		const centerY = top + height / 2;
+
+		balloonData.push({
+		  text: balloon.textContent,
+		  xNorm: centerX / canvas.width,
+		  yNorm: centerY / canvas.height,
+		  fontSize: parseFloat(balloon.style.fontSize) || 16,
+		  color: balloon.style.backgroundColor
+		});
+	  });
+	  
+	  const lineData = lines.map(l => ({
+		fromXNorm: l.fromX / canvas.width,
+		fromYNorm: l.fromY / canvas.height,
+		toXNorm:   l.toX / canvas.width,
+		toYNorm:   l.toY / canvas.height,
+		color: l.color,
+		fromLabel: l.fromBalloon ? l.fromBalloon.textContent : null,
+		toLabel:   l.toBalloon ? l.toBalloon.textContent : null
+	  }));
+
+	  historyStack.push({ balloons: balloonData, lines: lineData });
+	}
 
     function restoreLastState() {
       if (historyStack.length < 2) return;
       historyStack.pop();
       const prev = historyStack[historyStack.length - 1];
+	  
       balloonLayer.innerHTML = '';
       lineLayer.innerHTML = '';
       lines = [];
+	  
+	  const balloonMap = {}; // Rebuild balloons first and keep a lookup by text
       prev.balloons.forEach(d => {
         const b = createBalloonFromData(d);
         balloonLayer.appendChild(b);
+		balloonMap[d.text] = b;
       });
-      prev.lines.forEach(l => {
-        drawLineBetween(l.fromX, l.fromY, l.toX, l.toY, l.color);
+	  
+	  prev.lines.forEach(l => {
+		const fromX = l.fromXNorm * canvas.width;
+		const fromY = l.fromYNorm * canvas.height;
+		const toX   = l.toXNorm   * canvas.width;
+		const toY   = l.toYNorm   * canvas.height;
+		
+		const fromBalloon = balloonMap[l.fromLabel] || null;
+		const toBalloon   = balloonMap[l.toLabel] || null;
+
+		drawLineBetween(fromX, fromY, toX, toY, l.color, fromBalloon, toBalloon);
+	  
       });
     }
 
@@ -313,21 +359,30 @@
       pendingBalloon = null;
     }
 
-    function createBalloonFromData(data) {
-      const balloon = document.createElement('div');
-      balloon.className = 'balloon';
-      balloon.textContent = data.text;
-      balloon.style.left = data.left;
-      balloon.style.top = data.top;
-      balloon.style.width = data.width;
-      balloon.style.height = data.height;
-      balloon.style.lineHeight = data.lineHeight;
-      balloon.style.fontSize = data.fontSize;
-      balloon.style.backgroundColor = data.color || balloonColorInput.value;
-      balloon.style.borderColor = darkenColor(balloon.style.backgroundColor, 0.6);
-      attachBalloonEvents(balloon);
-      return balloon;
-    }
+	function createBalloonFromData(data) {
+	  const balloon = document.createElement('div');
+	  balloon.className = 'balloon';
+	  balloon.textContent = data.text;
+	  balloon.style.fontSize = data.fontSize + 'px';
+	  balloon.style.backgroundColor = data.color || balloonColorInput.value;
+	  balloon.style.borderColor = darkenColor(balloon.style.backgroundColor, 0.6);
+
+	  balloonLayer.appendChild(balloon);
+
+	  // Compute current position from normalized coordinates
+	  const centerX = data.xNorm * canvas.width;
+	  const centerY = data.yNorm * canvas.height;
+
+	  const rect = balloon.getBoundingClientRect();
+	  const newLeft = centerX - rect.width / 2;
+	  const newTop  = centerY - rect.height / 2;
+
+	  balloon.style.left = newLeft + 'px';
+	  balloon.style.top  = newTop + 'px';
+
+	  attachBalloonEvents(balloon);
+	  return balloon;
+	}
 
     function darkenColor(color, factor = 0.7) {
       if (!color) return color;
@@ -614,6 +669,18 @@
       return handle;
     }
 	
+	// -------------Text Box Size Input -------------------------- //
+	textboxSizeInput.addEventListener("input", () => {
+	  const size = parseInt(textboxSizeInput.value) || 14;
+
+	  // If a textbox is focused (clicked into), change its font size
+	  const active = document.activeElement;
+	  if (active && active.classList.contains("textbox")) {
+		active.style.fontSize = size + "px";
+		saveStateToHistory();
+	  }
+	});
+	
 	// -------------Text Box Drag Function -----------------------//
 	function makeTextBoxDraggable(tb) {
 	  let isDragging = false;
@@ -661,10 +728,13 @@
 
     // ---------- leader line mode toggle + clicks to create balloons/lines ----------
     document.getElementById('toggle-line-mode').addEventListener('click', () => {
-      leaderLineMode = !leaderLineMode;
-      pendingBalloon = null;
-      document.getElementById('toggle-line-mode').textContent = leaderLineMode ? 'Disable Leader Line Mode' : 'Enable Leader Line Mode';
-    });
+	  leaderLineMode = !leaderLineMode;
+	  pendingBalloon = null;
+
+	  const btn = document.getElementById('toggle-line-mode');
+	  btn.textContent = leaderLineMode ? 'Disable Leader Line Mode' : 'Enable Leader Line Mode';
+	  btn.classList.toggle('active-btn', leaderLineMode);
+	});
 
     canvas.addEventListener('click', e => {
 	  
@@ -694,10 +764,11 @@
 	// --------------Text Box -------------------------------
 	document.getElementById("toggle-textbox").addEventListener("click", () => {
 	  isTextBoxMode = !isTextBoxMode;
-	  document.getElementById("toggle-textbox").textContent =
-		isTextBoxMode ? "Disable Text Box Mode" : "Enable Text Box Mode";
 
-	  // allow clicks to reach the text layer when active
+	  const btn = document.getElementById("toggle-textbox");
+	  btn.textContent = isTextBoxMode ? "Disable Text Box Mode" : "Enable Text Box Mode";
+	  btn.classList.toggle("active-btn", isTextBoxMode);
+
 	  textboxLayer.style.pointerEvents = isTextBoxMode ? "auto" : "none";
 	});
 	
@@ -724,7 +795,7 @@
 	  currentTextBox.style.top = startY + "px";
 	  currentTextBox.style.minWidth = "50px";
 	  currentTextBox.style.minHeight = "20px";
-	  currentTextBox.style.fontSize = document.getElementById("text-size").value + "px";
+	  currentTextBox.style.fontSize = textboxSizeInput.value + "px";
 
 	  textboxLayer.appendChild(currentTextBox);
 	  makeTextBoxDraggable(currentTextBox);
@@ -870,7 +941,7 @@
           r = parseInt(color[1] + color[1],16);
           g = parseInt(color[2] + color[2],16);
           b = parseInt(color[3] + color[3],16);
-          return { r,g,b };
+          return { r,g,b }; //aks
         }
       }
       return null;
