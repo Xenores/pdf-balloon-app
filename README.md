@@ -46,8 +46,8 @@ v1.7
 	
 	
 Note: 
-	The size of bubble is linked to the zoom level. A Text Size = 30 bubble at zoom 400% will be a little smaller than Text Size = 30 bubble atzoom 200%. 
-	The quality and file size of saved pdf will depend on the zoom level at which it is saved. Pdf saved at zoom = 200% is smaller than Pdf saved at zoom = 500%.
+	The size of bubble is linked to the zoom level. A Text Size = 30 bubble at zoom 400% will be a little smaller than Text Size = 30 bubble at zoom 200%. 
+ 	The quality and file size of saved pdf will depend on the zoom level at which it is saved. Pdf saved at zoom = 200% is smaller than Pdf saved at zoom = 500%.
 	
 	
 	
