@@ -110,6 +110,14 @@
 	  height: 100%;
 	}
 
+	#grid-layer {
+	  position: absolute;
+	  top: 0;
+	  left: 0;
+	  pointer-events: none;  /* don’t block clicks */
+	  z-index: 2;            /* below balloons/lines */
+	}
+
 	.textbox {
 	  font-family: Helvetica, sans-serif;
 	  position: absolute;
@@ -166,6 +174,7 @@
 
   <div id="container">
     <canvas id="pdf-canvas"></canvas>
+	<canvas id="grid-layer"></canvas>  
     <svg id="line-layer"></svg>
     <div id="balloon-layer"></div>
 	<div id="textbox-layer"></div>
@@ -421,6 +430,32 @@
       return balloon;
     }
 
+	  
+	const gridCanvas = document.getElementById("grid-layer");
+	const gridCtx = gridCanvas.getContext("2d");
+	
+	function drawGrid(spacing = 20) {
+	  gridCanvas.width = canvas.width;
+	  gridCanvas.height = canvas.height;
+	
+	  gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+	  gridCtx.strokeStyle = "rgba(0,0,0,0.15)"; // light gray
+	  gridCtx.lineWidth = 1;
+	
+	  for (let x = 0; x < gridCanvas.width; x += spacing) {
+	    gridCtx.beginPath();
+	    gridCtx.moveTo(x, 0);
+	    gridCtx.lineTo(x, gridCanvas.height);
+	    gridCtx.stroke();
+	  }
+	  for (let y = 0; y < gridCanvas.height; y += spacing) {
+	    gridCtx.beginPath();
+	    gridCtx.moveTo(0, y);
+	    gridCtx.lineTo(gridCanvas.width, y);
+	    gridCtx.stroke();
+	  }
+	}
+
     function getNextBalloonNumber() {
       const all = balloonLayer.querySelectorAll('.balloon');
       let max = 0;
@@ -451,7 +486,6 @@
 	  });
 	}
 	
-	
     // drag/edit/delete balloons (same logic as before)
     function attachBalloonEvents(balloon) {
       let isDragging = false;
@@ -472,8 +506,12 @@
         const containerRect = balloonLayer.getBoundingClientRect();
         const x = e.clientX - containerRect.left - offsetX;
         const y = e.clientY - containerRect.top - offsetY;
-        balloon.style.left = x + 'px';
-        balloon.style.top = y + 'px';
+        const gridSize = 20; // px per grid cell
+		const snapX = Math.round(x / gridSize) * gridSize;
+		const snapY = Math.round(y / gridSize) * gridSize;
+		
+		balloon.style.left = snapX + 'px';
+		balloon.style.top = snapY + 'px';
         updateLinesForBalloon(balloon);
       });
 
@@ -1114,6 +1152,7 @@
         zoomRange.value = Math.round(scale * 100);
         zoomLevelSpan.textContent = Math.round(scale * 100) + '%';
       }
+		drawGrid(20 * newScale); // grid spacing scales with zoom
     }
 
     // ---------- zoom UI wiring ---------- //
