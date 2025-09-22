@@ -111,8 +111,9 @@
 	}
 
 	.textbox {
+	  font-family: Helvetica, sans-serif;
 	  position: absolute;
-	  padding: 2px;
+	  padding: 6px 8px;   /*  more inner padding: 6px top/bottom, 8px left/right */
 	  resize: both;
 	  overflow: auto;
 	  cursor: text;
@@ -715,6 +716,9 @@
 		const y = e.clientY - containerRect.top - offsetY;
 		tb.style.left = x + "px";
 		tb.style.top = y + "px";
+		tb.dataset.xNorm = x / canvas.width;
+		tb.dataset.yNorm = y / canvas.height;
+
 	  });
 
 	  document.addEventListener("mouseup", () => {
@@ -796,6 +800,12 @@
 	  currentTextBox.style.minWidth = "50px";
 	  currentTextBox.style.minHeight = "20px";
 	  currentTextBox.style.fontSize = textboxSizeInput.value + "px";
+	  
+	  // store normalized position/size so zoom works
+		currentTextBox.dataset.xNorm = startX / canvas.width;
+		currentTextBox.dataset.yNorm = startY / canvas.height;
+		currentTextBox.dataset.wNorm = (parseFloat(currentTextBox.style.width) || 50) / canvas.width;
+		currentTextBox.dataset.hNorm = (parseFloat(currentTextBox.style.height) || 20) / canvas.height;
 
 	  textboxLayer.appendChild(currentTextBox);
 	  makeTextBoxDraggable(currentTextBox);
@@ -809,6 +819,10 @@
 		textboxLayer.removeEventListener("mousemove", resize);
 		textboxLayer.removeEventListener("mouseup", stop);
 		currentTextBox.focus();
+		// normalize final size
+		currentTextBox.dataset.wNorm = (parseFloat(currentTextBox.style.width) || currentTextBox.offsetWidth) / canvas.width;
+		currentTextBox.dataset.hNorm = (parseFloat(currentTextBox.style.height) || currentTextBox.offsetHeight) / canvas.height;
+
 		saveStateToHistory();
 	  }
 
@@ -885,8 +899,11 @@
 		  const top = parseFloat(tb.style.top) || 0;
 		  const width = parseFloat(tb.style.width) || tb.offsetWidth;
 		  const height = parseFloat(tb.style.height) || tb.offsetHeight;
-
+		  const text = tb.innerText.trim();
 		  const fontSize = parseFloat(window.getComputedStyle(tb).fontSize) || 12;
+
+		  if (!text) return;
+
 		  const scaledLeft = left * scaleX;
 		  const scaledTop  = top  * scaleY;
 		  const scaledWidth = width * scaleX;
@@ -908,29 +925,15 @@
 		  pdf.setFontSize(scaledFontSize);
 		  pdf.setTextColor(0,0,0);
 
-		  let textHtml = tb.innerHTML.replace(/<br>/gi, '\n').replace(/<\/div>/gi, '\n');
-		  let lines = textHtml
-			  .replace(/<.*?>/g, '') // Remove all tags
-			  .split('\n');
-			// Remove trailing empty lines for cleaner output, if desired
-			while (lines.length && lines[lines.length - 1].trim() === '') lines.pop();
-			
-			const lineHeight = scaledFontSize * 1.2;
-			let y = scaledTop + scaledFontSize;
-			
-			for (let i = 0; i < lines.length; ++i) {
-			  // Even for blank lines, move y down
-			  if (lines[i].trim() !== '') {
-			    pdf.text(lines[i], scaledLeft + 4, y, {
-			      maxWidth: scaledWidth - 8,
-			      align: "left"
-			    });
-			  }
-			  y += lineHeight;
-			}
-		 
+		  const wrapped = pdf.splitTextToSize(text, scaledWidth - 2*2); //Padding (2) * 2
+		  pdf.text(wrapped, scaledLeft + 2, scaledTop + scaledFontSize, {
+		   maxWidth: scaledWidth - 2*2,
+		   align: "left",
+		   baseline: "top"
+		  });
 		});
-		  
+	  
+	  
         pdf.save(filename + '.pdf');
       } catch (err) {
         console.error('Failed to save PDF', err);
@@ -996,6 +999,24 @@
             b.style.left = newLeft + 'px';
             b.style.top = newTop + 'px';
           });
+		  
+		  // scale textboxes
+			textboxLayer.querySelectorAll('.textbox').forEach(tb => {
+			  const x = parseFloat(tb.dataset.xNorm) * newW;
+			  const y = parseFloat(tb.dataset.yNorm) * newH;
+			  const w = parseFloat(tb.dataset.wNorm) * newW;
+			  const h = parseFloat(tb.dataset.hNorm) * newH;
+
+			  tb.style.left = x + "px";
+			  tb.style.top = y + "px";
+			  tb.style.width = w + "px";
+			  tb.style.height = h + "px";
+
+			 /* // scale font size too
+			  const baseFont = parseFloat(tb.dataset.baseFont || window.getComputedStyle(tb).fontSize) || 14;
+			  tb.style.fontSize = (baseFont * newScale) + "px";
+			  tb.dataset.baseFont = baseFont; // remember original size*/
+			});
 
           // scale free-floating line endpoints
           lines.forEach((line, idx) => {
@@ -1044,6 +1065,24 @@
           b.style.left = newLeft + 'px';
           b.style.top = newTop + 'px';
         });
+		
+		// scale textboxes
+		textboxLayer.querySelectorAll('.textbox').forEach(tb => {
+		  const x = parseFloat(tb.dataset.xNorm) * newW;
+		  const y = parseFloat(tb.dataset.yNorm) * newH;
+		  const w = parseFloat(tb.dataset.wNorm) * newW;
+		  const h = parseFloat(tb.dataset.hNorm) * newH;
+
+		  tb.style.left = x + "px";
+		  tb.style.top = y + "px";
+		  tb.style.width = w + "px";
+		  tb.style.height = h + "px";
+
+		 /* // scale font size too
+		  const baseFont = parseFloat(tb.dataset.baseFont || window.getComputedStyle(tb).fontSize) || 14;
+		  tb.style.fontSize = (baseFont * newScale) + "px";
+		  tb.dataset.baseFont = baseFont; // remember original size*/
+		});
 
         // scale free-floating lines
         lines.forEach((line, idx) => {
