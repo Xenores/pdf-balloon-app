@@ -21,11 +21,11 @@ v1.4
 	'+' button added for Zoom Slider
 	
 v1.5
-	Now renumbering ignores suffix and update the 'base'
-		Eg: "9a" 	→ { base: 9, suffix: "a" }
-			"9b" 	→ { base: 9, suffix: "b" }
-			"9f-g" 	→ { base: 9, suffix: "f-g" }
-			"10-x1" → { base: 10, suffix: "-x1" }
+	Now renumbering ignores suffix and update the 'base'  
+		Eg: "9a" 	→ { base: 9, suffix: "a" }  
+			"9b" 	→ { base: 9, suffix: "b" }  
+			"9f-g" 	→ { base: 9, suffix: "f-g" }  
+			"10-x1" → { base: 10, suffix: "-x1" }  
 v1.6
 	Text box can be added, resized, edited.
 	If the text box is empty or has few line, need to click on the right-edge of text for it to be selectable/editable. (Empty text box don't get saved in final pdf)
