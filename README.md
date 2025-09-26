@@ -60,6 +60,8 @@ v1.8.2
 	Updated text box logic. Now text box size in app is similar to that in saved pdf. 
 	Added a 'How to Use' guide at the bottom of the screen
 	
+v1.8.3
+	Expanded remubering logic to pure alphabet bubbles. So if you delete balloon c, all balloons d,e,f… shift back.
 	
 Note: 
 	The size of bubble is linked to the zoom level. A Text Size = 30 bubble at zoom 400% will be a little smaller than Text Size = 30 bubble at zoom 200%. 
