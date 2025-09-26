@@ -80,7 +80,13 @@
       pointer-events: none; /* balloons themselves use pointer-events:auto */
       z-index: 10;
     }
-
+	
+	.toolbar-group {
+	  display: flex;
+	  align-items: center;   /* ensures label + input align properly */
+	  gap: 0.2em;            /* small spacing between label and input */
+	}
+	
     .balloon {
       position: absolute;
       padding: 4px 10px;
@@ -110,14 +116,6 @@
 	  height: 100%;
 	}
 
-	#grid-layer {
-	  position: absolute;
-	  top: 0;
-	  left: 0;
-	  pointer-events: none;  /* don’t block clicks */
-	  z-index: 2;            /* below balloons/lines */
-	}
-
 	.textbox {
 	  font-family: Helvetica, sans-serif;
 	  position: absolute;
@@ -136,6 +134,30 @@
 	  border: 2px solid #007bff;   				/* blue border when editing */
 	  background: rgba(255,255,255,1);
 	}
+	
+	#footer {
+	  margin-top: 2em;
+	  padding: 1em;
+	  background: #f0f0f0;
+	  border-top: 1px solid #ccc;
+	  font-size: 0.9em;
+	  color: #333;
+	}
+
+	#footer h3 {
+	  margin-top: 0;
+	  font-size: 1.1em;
+	}
+
+	#footer ul {
+	  padding-left: 1.2em;
+	  margin: 0.5em 0 0;
+	}
+
+	#footer li {
+	  margin: 0.4em 0;
+	}
+
   </style>
 
   <!-- PDF.js -->
@@ -155,26 +177,37 @@
     <span id="zoom-level">100%</span>
 	<button id="zoom-in" title="Zoom in">+</button>
 
-    <!-- Existing controls -->
     <input type="file" id="file-input" accept=".pdf,.png,.jpg,.jpeg,.webp" />
-    <label for="text-size">Balloon Text Size:</label>
-    <input type="number" id="text-size" value="16" min="8" max="100" step="1" />
-    <label for="balloon-color">Balloon Color:</label>
-    <input type="color" id="balloon-color" value="#ff0000" />
-    <label for="export-filename">Filename:</label>
-    <input type="text" id="export-filename" value="ballooned" />
+	
+	<div class="toolbar-group">
+		<label for="text-size">Balloon Text Size:</label>
+		<input type="number" id="text-size" value="16" min="8" max="100" step="1" />
+	</div>
+	
+    <div class="toolbar-group">
+		<label for="balloon-color">Balloon Color:</label>
+		<input type="color" id="balloon-color" value="#ff0000" />
+	</div>
+	
+	<div class="toolbar-group">
+		<label for="export-filename">Filename:</label>
+		<input type="text" id="export-filename" value="ballooned" />
+	</div>
+	
     <button id="save-pdf-btn">Save as PDF</button>
     <button id="undo-btn">Undo</button>
+	<button id="move-mode">Move</button>
     <button id="toggle-line-mode">Enable Leader Line Mode</button>
 	<button id="toggle-textbox">Enable Text Box Mode</button>
-	<label for="textbox-size">Text Box Size:</label>
-	<input type="number" id="textbox-size" value="14" min="8" max="100" step="1" />
 	
+	<div class="toolbar-group">
+		<label for="textbox-size">Text Box Size:</label>
+		<input type="number" id="textbox-size" value="14" min="8" max="100" step="1" />
+	</div>
   </div>
 
   <div id="container">
     <canvas id="pdf-canvas"></canvas>
-	<canvas id="grid-layer"></canvas>  
     <svg id="line-layer"></svg>
     <div id="balloon-layer"></div>
 	<div id="textbox-layer"></div>
@@ -189,6 +222,7 @@
     let originalPageWidth = 0;
     let originalPageHeight = 0;
     let currentImage = null;        // store loaded image (if any)
+	let moveMode = false;
 	let isRendering = false;
 	let pendingRender = null;
 	let isTextBoxMode = false;
@@ -278,7 +312,14 @@
       });
     }
 
-    document.getElementById('undo-btn').addEventListener('click', restoreLastState);
+    document.getElementById("move-mode").addEventListener("click", () => {
+	  moveMode = !moveMode;
+	  const btn = document.getElementById("move-mode");
+	  btn.classList.toggle("active-btn", moveMode);
+	});
+		
+	
+	document.getElementById('undo-btn').addEventListener('click', restoreLastState);
 
     // ---------- file loading ----------
     document.getElementById('file-input').addEventListener('change', e => {
@@ -430,31 +471,6 @@
       return balloon;
     }
 
-	  
-	const gridCanvas = document.getElementById("grid-layer");
-	const gridCtx = gridCanvas.getContext("2d");
-	
-	function drawGrid(spacing = 20) {
-	  gridCanvas.width = canvas.width;
-	  gridCanvas.height = canvas.height;
-	
-	  gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
-	  gridCtx.strokeStyle = "rgba(0,0,0,0.15)"; // light gray
-	  gridCtx.lineWidth = 1;
-	
-	  for (let x = 0; x < gridCanvas.width; x += spacing) {
-	    gridCtx.beginPath();
-	    gridCtx.moveTo(x, 0);
-	    gridCtx.lineTo(x, gridCanvas.height);
-	    gridCtx.stroke();
-	  }
-	  for (let y = 0; y < gridCanvas.height; y += spacing) {
-	    gridCtx.beginPath();
-	    gridCtx.moveTo(0, y);
-	    gridCtx.lineTo(gridCanvas.width, y);
-	    gridCtx.stroke();
-	  }
-	}
 
     function getNextBalloonNumber() {
       const all = balloonLayer.querySelectorAll('.balloon');
@@ -467,24 +483,72 @@
     }
 	
 	// Helper: split balloon label into base number + suffix (e.g. "9a" -> { base: 9, suffix: "a" })
+	// Helper: split label into either a number or a single letter
 	function splitLabel(text) {
 	  const t = String(text || '').trim();
-	  const match = t.match(/^(\d+)(.*)$/i); 
-	  if (!match) return { base: NaN, suffix: '' };
-	  return { base: parseInt(match[1], 10), suffix: (match[2] || '') };
+
+	  // Case 1: pure number (like "5")
+	  if (/^\d+$/.test(t)) {
+		return { type: "number", value: parseInt(t, 10) };
+	  }
+
+	  // Case 2: single lowercase/uppercase letter
+	  if (/^[a-zA-Z]$/.test(t)) {
+		return { type: "letter", value: t };
+	  }
+
+	  // Case 3: number + suffix (like "9a")
+	  const match = t.match(/^(\d+)(.*)$/);
+	  if (match) {
+		return { type: "numberSuffix", base: parseInt(match[1], 10), suffix: match[2] };
+	  }
+
+	  // Unknown
+	  return { type: "other", value: t };
 	}
 
-	// Renumber balloons after deleting a balloon whose base number was `deletedBase`
-	// Preserves suffixes (e.g. '9a' -> '8a') for any balloon with base > deletedBase
-	function renumberAfterDeletion(deletedBase) {
-	  if (!Number.isFinite(deletedBase)) return;
-	  balloonLayer.querySelectorAll('.balloon').forEach(b => {
-		const { base, suffix } = splitLabel(b.textContent);
-		if (!Number.isNaN(base) && base > deletedBase) {
-		  b.textContent = (base - 1) + suffix;
-		}
-	  });
+	function renumberAfterDeletion(deletedLabel) {
+	  const info = splitLabel(deletedLabel);
+
+	  // Case 1: numbers (1,2,3…)
+	  if (info.type === "number") {
+		balloonLayer.querySelectorAll('.balloon').forEach(b => {
+		  const bi = splitLabel(b.textContent);
+		  if (bi.type === "number" && bi.value > info.value) {
+			b.textContent = (bi.value - 1).toString();
+		  } 
+		  else if (bi.type === "numberSuffix" && bi.base > info.value) {
+			b.textContent = (bi.base - 1) + bi.suffix;
+		  }
+		});
+	  }
+
+	  // Case 2: letters (a,b,c…)
+	  else if (info.type === "letter") {
+		const deletedCharCode = info.value.toLowerCase().charCodeAt(0);
+		balloonLayer.querySelectorAll('.balloon').forEach(b => {
+		  const bi = splitLabel(b.textContent);
+		  if (bi.type === "letter") {
+			const charCode = bi.value.toLowerCase().charCodeAt(0);
+			if (charCode > deletedCharCode) {
+			  const newChar = String.fromCharCode(charCode - 1);
+			  b.textContent = newChar;
+			}
+		  }
+		});
+	  }
+
+	  // Case 3: number+suffix (e.g. "9a", "9g-h")
+	  else if (info.type === "numberSuffix") {
+		balloonLayer.querySelectorAll('.balloon').forEach(b => {
+		  const bi = splitLabel(b.textContent);
+		  if (bi.type === "numberSuffix" && bi.base > info.base) {
+			b.textContent = (bi.base - 1) + bi.suffix;
+		  }
+		});
+	  }
 	}
+
 	
     // drag/edit/delete balloons (same logic as before)
     function attachBalloonEvents(balloon) {
@@ -525,45 +589,45 @@
 
       balloon.addEventListener('click', e => {
         e.stopPropagation();
-        const newText = prompt('Edit balloon text:', balloon.textContent);
-        if (newText !== null && newText.trim() !== '') {
-          balloon.textContent = newText.trim();
-          const fontSize = parseInt(document.getElementById('text-size').value) || 16;
-          balloon.style.fontSize = fontSize + 'px';
+		if (!moveMode) {
+			const newText = prompt('Edit balloon text:', balloon.textContent);
+			if (newText !== null && newText.trim() !== '') {
+			  balloon.textContent = newText.trim();
+			  const fontSize = parseInt(document.getElementById('text-size').value) || 16;
+			  balloon.style.fontSize = fontSize + 'px';
 
-          // keep center
-          const rect = balloon.getBoundingClientRect();
-          const containerRect = balloonLayer.getBoundingClientRect();
-          const centerX = rect.left - containerRect.left + rect.width / 2;
-          const centerY = rect.top - containerRect.top + rect.height / 2;
+			  // keep center
+			  const rect = balloon.getBoundingClientRect();
+			  const containerRect = balloonLayer.getBoundingClientRect();
+			  const centerX = rect.left - containerRect.left + rect.width / 2;
+			  const centerY = rect.top - containerRect.top + rect.height / 2;
 
-          balloon.style.left = '0px';
-          balloon.style.top = '0px';
-          const newRect = balloon.getBoundingClientRect();
-          const newLeft = centerX - newRect.width / 2;
-          const newTop = centerY - newRect.height / 2;
+			  balloon.style.left = '0px';
+			  balloon.style.top = '0px';
+			  const newRect = balloon.getBoundingClientRect();
+			  const newLeft = centerX - newRect.width / 2;
+			  const newTop = centerY - newRect.height / 2;
 
-          balloon.style.left = newLeft + 'px';
-          balloon.style.top = newTop + 'px';
-          saveStateToHistory();
-        }
+			  balloon.style.left = newLeft + 'px';
+			  balloon.style.top = newTop + 'px';
+			  saveStateToHistory();
+			}
+		}
       });
 
       balloon.addEventListener('contextmenu', e => {
 		  e.preventDefault();
 		  e.stopPropagation();
 
-		  // determine numeric base of deleted balloon (handles "9a" etc.)
-		  const { base: deletedBase } = splitLabel(balloon.textContent);
-
 		  const shouldRenumber = confirm('Renumber balloons after deleting?');
-
+		  
+		  const deletedLabel = balloon.textContent;
 		  // remove balloon and its connected lines
 		  balloon.remove();
 		  removeLinesConnectedTo(balloon);
 
 		  if (shouldRenumber) {
-			renumberAfterDeletion(deletedBase);
+			renumberAfterDeletion(deletedLabel);
 		  }
 
 		  saveStateToHistory();
@@ -720,6 +784,14 @@
 	  }
 	});
 	
+	function trackTextBoxResize(tb) {
+	  const observer = new ResizeObserver(() => {
+		tb.dataset.wNorm = tb.offsetWidth / canvas.width;
+		tb.dataset.hNorm = tb.offsetHeight / canvas.height;
+	  });
+	  observer.observe(tb);
+	}
+	
 	// -------------Text Box Drag Function -----------------------//
 	function makeTextBoxDraggable(tb) {
 	  let isDragging = false;
@@ -767,7 +839,6 @@
 	  });
 	}
 	
-
     // ---------- leader line mode toggle + clicks to create balloons/lines ----------
     document.getElementById('toggle-line-mode').addEventListener('click', () => {
 	  leaderLineMode = !leaderLineMode;
@@ -838,7 +909,7 @@
 	  currentTextBox.style.minWidth = "50px";
 	  currentTextBox.style.minHeight = "20px";
 	  currentTextBox.style.fontSize = textboxSizeInput.value + "px";
-	  
+
 	  // store normalized position/size so zoom works
 		currentTextBox.dataset.xNorm = startX / canvas.width;
 		currentTextBox.dataset.yNorm = startY / canvas.height;
@@ -847,6 +918,7 @@
 
 	  textboxLayer.appendChild(currentTextBox);
 	  makeTextBoxDraggable(currentTextBox);
+	  trackTextBoxResize(currentTextBox);
 
 	  function resize(eMove) {
 		currentTextBox.style.width = (eMove.offsetX - startX) + "px";
@@ -933,39 +1005,40 @@
 		
 	  // Text box export
 	  textboxLayer.querySelectorAll('.textbox').forEach(tb => {
-		  const left = parseFloat(tb.style.left) || 0;
-		  const top = parseFloat(tb.style.top) || 0;
-		  const width = parseFloat(tb.style.width) || tb.offsetWidth;
-		  const height = parseFloat(tb.style.height) || tb.offsetHeight;
 		  const text = tb.innerText.trim();
-		  const fontSize = parseFloat(window.getComputedStyle(tb).fontSize) || 12;
-
 		  if (!text) return;
 
-		  const scaledLeft = left * scaleX;
-		  const scaledTop  = top  * scaleY;
-		  const scaledWidth = width * scaleX;
-		  const scaledHeight = height * scaleY;
-		  const scaledFontSize = fontSize * scaleX;
+		  // Use normalized values (fallback to measured if missing)
+		  const xNorm = parseFloat(tb.dataset.xNorm) || (parseFloat(tb.style.left) || 0) / canvas.width;
+		  const yNorm = parseFloat(tb.dataset.yNorm) || (parseFloat(tb.style.top) || 0) / canvas.height;
+		  const wNorm = parseFloat(tb.dataset.wNorm) || tb.offsetWidth / canvas.width;
+		  const hNorm = parseFloat(tb.dataset.hNorm) || tb.offsetHeight / canvas.height;
+
+		  const left   = xNorm * originalPageWidth;
+		  const top    = yNorm * originalPageHeight;
+		  const width  = wNorm * originalPageWidth;
+		  const height = hNorm * originalPageHeight;
+		  
+		  const fontSize = parseFloat(window.getComputedStyle(tb).fontSize) || 12;
+		  const scaledFontSize = fontSize * (originalPageWidth / canvas.width);
 
 		  // Draw solid white background
 		  pdf.setFillColor(255, 255, 255);   // white
-		  pdf.rect(scaledLeft, scaledTop, scaledWidth, scaledHeight, "F"); // F = fill
-		  
+		  pdf.rect(left, top, width, height, "F");		  
 		  
 		  // Draw solid border
 		  pdf.setDrawColor(0, 0, 0); // black
 		  pdf.setLineWidth(1);
-		  pdf.rect(scaledLeft, scaledTop, scaledWidth, scaledHeight);
+		  pdf.rect(left, top, width, height);
 
 		  // Draw text inside
 		  pdf.setFont("helvetica", "normal");
 		  pdf.setFontSize(scaledFontSize);
 		  pdf.setTextColor(0,0,0);
 
-		  const wrapped = pdf.splitTextToSize(text, scaledWidth - 2*2); //Padding (2) * 2
-		  pdf.text(wrapped, scaledLeft + 2, scaledTop + scaledFontSize, {
-		   maxWidth: scaledWidth - 2*2,
+		  const wrapped = pdf.splitTextToSize(text, width - 4); //Padding (2) * 2
+		  pdf.text(wrapped, left + 2, top + scaledFontSize, {
+		   maxWidth: width - 4,
 		   align: "left",
 		   baseline: "top"
 		  });
@@ -1042,18 +1115,9 @@
 			textboxLayer.querySelectorAll('.textbox').forEach(tb => {
 			  const x = parseFloat(tb.dataset.xNorm) * newW;
 			  const y = parseFloat(tb.dataset.yNorm) * newH;
-			  const w = parseFloat(tb.dataset.wNorm) * newW;
-			  const h = parseFloat(tb.dataset.hNorm) * newH;
-
 			  tb.style.left = x + "px";
 			  tb.style.top = y + "px";
-			  tb.style.width = w + "px";
-			  tb.style.height = h + "px";
 
-			 /* // scale font size too
-			  const baseFont = parseFloat(tb.dataset.baseFont || window.getComputedStyle(tb).fontSize) || 14;
-			  tb.style.fontSize = (baseFont * newScale) + "px";
-			  tb.dataset.baseFont = baseFont; // remember original size*/
 			});
 
           // scale free-floating line endpoints
@@ -1108,18 +1172,8 @@
 		textboxLayer.querySelectorAll('.textbox').forEach(tb => {
 		  const x = parseFloat(tb.dataset.xNorm) * newW;
 		  const y = parseFloat(tb.dataset.yNorm) * newH;
-		  const w = parseFloat(tb.dataset.wNorm) * newW;
-		  const h = parseFloat(tb.dataset.hNorm) * newH;
-
 		  tb.style.left = x + "px";
 		  tb.style.top = y + "px";
-		  tb.style.width = w + "px";
-		  tb.style.height = h + "px";
-
-		 /* // scale font size too
-		  const baseFont = parseFloat(tb.dataset.baseFont || window.getComputedStyle(tb).fontSize) || 14;
-		  tb.style.fontSize = (baseFont * newScale) + "px";
-		  tb.dataset.baseFont = baseFont; // remember original size*/
 		});
 
         // scale free-floating lines
@@ -1152,7 +1206,6 @@
         zoomRange.value = Math.round(scale * 100);
         zoomLevelSpan.textContent = Math.round(scale * 100) + '%';
       }
-		drawGrid(20 * newScale); // grid spacing scales with zoom
     }
 
     // ---------- zoom UI wiring ---------- //
@@ -1184,5 +1237,22 @@
     zoomLevelSpan.textContent = Math.round(scale * 100) + '%';
 
   </script>
+  
+    <footer id="footer">
+    <h3>How to Use</h3>
+    <ul>
+      <li>📂 Upload a PDF or image using the "Choose File" button.</li>
+      <li>➕ Click anywhere on the canvas to add a balloon annotation.</li>
+      <li>✏️ Right-click a balloon to delete it (optionally renumber others).</li>
+      <li>📏 Enable "Leader Line Mode" to connect balloons with lines.</li>
+      <li>📝 Enable "Text Box Mode" to draw and edit text boxes.</li>
+      <li>💾 Use "Save as PDF" to export your annotated document.</li>
+	  <li>Note: The size of bubble is linked to the zoom level. A Text Size = 30 bubble at zoom 400% will be a little smaller than Text Size = 30 bubble at zoom 200%.</li>
+	  <li>&emsp; &ensp; &ensp;Undo button reloads the all bubble's size for the current zoom.</li>
+	  <li>&emsp; &ensp; &ensp;The quality and file size of saved PDF will depend on the zoom level at which it is saved. PDF saved at zoom = 200% is smaller than PDF saved at zoom = 500%.</li>
+	  <li>&emsp; &ensp; &ensp;Since app takes time to update edits, continuous and rapid zoom/clicks may cause errors due to incorrect update of history stack.</li>	  
+    </ul>
+  </footer>
+ 
 </body>
 </html>
