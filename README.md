@@ -71,9 +71,7 @@ Note:
 	
 	
 Bugs: 
-	Text Box dimensions resets when zoomed: Fixed
 	Text Boxes are generated dynamically in the end. Therefor, the dimension might differ from what is in the app. - v1.7.1: The difference is now minor.
-	Text box position isnt locked to pdf, so relative position can change if zoom is varied: - v1.7.1 Fixed.
 	Text Box Dimensions dont update in saved pdf after zoom is changed. Workaround- resize after zoom to update. v1.8.2
 	
 </pre>
