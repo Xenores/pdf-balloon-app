@@ -1041,8 +1041,21 @@
           pdf.text(text, scaledLeft + scaledWidth/2, scaledTop + scaledHeight/2 + yOffset, { align: 'center' });
         });
 		
+		
+		// Refresh normalized positions and sizes of all textboxes
+		textboxLayer.querySelectorAll('.textbox').forEach(tb => {
+		  const left = parseFloat(tb.style.left) || 0;
+		  const top = parseFloat(tb.style.top) || 0;
+		  const width = tb.offsetWidth;
+		  const height = tb.offsetHeight;
+
+		  tb.dataset.xNorm = left / canvas.width;
+		  tb.dataset.yNorm = top / canvas.height;
+		  tb.dataset.wNorm = width / canvas.width;
+		  tb.dataset.hNorm = height / canvas.height;
+		});
 	  // Text box export
-	  textboxLayer.querySelectorAll('.textbox').forEach(tb => {
+		textboxLayer.querySelectorAll('.textbox').forEach(tb => {
 		  const text = tb.innerText.trim();
 		  if (!text) return;
 
@@ -1299,11 +1312,13 @@
 		pageWidth = view[2];
 		pageHeight = view[3];
 	  }
+	  const balloonSizeInput = document.getElementById("text-size");
 	  const project = {
 		meta: {
 		  version: 1,
 		  originalFileName,
 		  scale,
+		  balloonSize: parseInt(balloonSizeInput.value) || 16,
 		  canvasWidth: canvas.width,
 		  canvasHeight: canvas.height,
 		  pageWidth,
@@ -1326,14 +1341,26 @@
 		  fromLabel: l.fromBalloon?.textContent || null,
 		  toLabel: l.toBalloon?.textContent || null
 		})),
-		textboxes: Array.from(textboxLayer.querySelectorAll('.textbox')).map(tb => ({
-		  text: tb.innerText,
-		  xNorm: parseFloat(tb.dataset.xNorm),
-		  yNorm: parseFloat(tb.dataset.yNorm),
-		  wNorm: parseFloat(tb.dataset.wNorm),
-		  hNorm: parseFloat(tb.dataset.hNorm),
-		  fontSize: parseFloat(window.getComputedStyle(tb).fontSize)
-		}))
+		
+		textboxes: Array.from(textboxLayer.querySelectorAll('.textbox')).map(tb => {
+		  // Use actual PDF page width/height as reference if available
+		  const baseWidth = pageWidth || canvas.width;
+		  const baseHeight = pageHeight || canvas.height;
+
+		  const leftPx = parseFloat(tb.style.left) || 0;
+		  const topPx = parseFloat(tb.style.top) || 0;
+		  const widthPx = tb.offsetWidth;
+		  const heightPx = tb.offsetHeight;
+
+		  return {
+			text: tb.innerText,
+			xNorm: leftPx / baseWidth,
+			yNorm: topPx / baseHeight,
+			wNorm: widthPx / baseWidth,
+			hNorm: heightPx / baseHeight,
+			fontSize: parseFloat(window.getComputedStyle(tb).fontSize)
+		  };
+		})
 	  };
 
 	  const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
@@ -1375,6 +1402,10 @@
 		// Wait until PDF/image is scaled and canvas is resized
 		await setPdfScale(project.meta.scale);
 	  }
+	  
+	  if (project.meta?.balloonSize) {
+		document.getElementById("text-size").value = project.meta.balloonSize;
+	  }
 
 	  // Use the **actual canvas dimensions** after scaling
 	  const canvasW = canvas.width;
@@ -1410,27 +1441,32 @@
 	  });
 
 	  // Restore textboxes
-	  project.textboxes.forEach(tb => {
-		const newBox = document.createElement("div");
-		newBox.className = "textbox";
-		newBox.contentEditable = "true";
-		newBox.innerText = tb.text;
-		newBox.style.fontSize = tb.fontSize + "px";
-		newBox.style.left = tb.xNorm * canvasW + "px";
-		newBox.style.top = tb.yNorm * canvasH + "px";
-		newBox.style.width = tb.wNorm * canvasW + "px";
-		newBox.style.height = tb.hNorm * canvasH + "px";
+	  // Use the actual current page size
+		const baseWidth = project.meta?.pageWidth || canvas.width;
+		const baseHeight = project.meta?.pageHeight || canvas.height;
 
-		newBox.dataset.xNorm = tb.xNorm;
-		newBox.dataset.yNorm = tb.yNorm;
-		newBox.dataset.wNorm = tb.wNorm;
-		newBox.dataset.hNorm = tb.hNorm;
+		project.textboxes.forEach(tb => {
+		  const newBox = document.createElement("div");
+		  newBox.className = "textbox";
+		  newBox.contentEditable = "true";
+		  newBox.innerText = tb.text;
+		  newBox.style.fontSize = tb.fontSize + "px";
 
-		textboxLayer.appendChild(newBox);
-		makeTextBoxDraggable(newBox);
-		trackTextBoxResize(newBox);
-	  });
+		  newBox.style.left = (tb.xNorm * baseWidth) + "px";
+		  newBox.style.top = (tb.yNorm * baseHeight) + "px";
+		  newBox.style.width = (tb.wNorm * baseWidth) + "px";
+		  newBox.style.height = (tb.hNorm * baseHeight) + "px";
 
+		  newBox.dataset.xNorm = tb.xNorm;
+		  newBox.dataset.yNorm = tb.yNorm;
+		  newBox.dataset.wNorm = tb.wNorm;
+		  newBox.dataset.hNorm = tb.hNorm;
+
+		  textboxLayer.appendChild(newBox);
+		  makeTextBoxDraggable(newBox);
+		  trackTextBoxResize(newBox);
+		});
+		
 	  alert("Project loaded successfully!");
 	});
 
