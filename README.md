@@ -1,5 +1,7 @@
 <pre>
 
+
+
 v1.0
 	Fixed export pdf being cropped out. 
 	Dimensions of pdf and images can now be seen in Console.
@@ -44,15 +46,15 @@ v1.7
 	Added 'Text Box Size' option to change font size of text inside text box. 
 	Button highlight when Leader Line Mode and Text Box Mode are enabled.
 	Button Size updated. 
-	
+
 v1.7.1
 	Text box position is now fixed relative to pdf while zooming. 
 	Text box padding updated to reduce difference between app and saved pdf. 
-	
+
 v1.8
 	Bubbles snap to invisible grid. 
 	Added Move button. Activating move button disables edit promt when clicking balloon. 
-	
+
 v1.8.1
 	Corrected alignment of top menu icons and texts. 
 
@@ -70,25 +72,42 @@ v1.8.4
 
 v1.8.5
 	Updated balloon text size to multiply with Zoom level. Now Ballons are consistent at different zooming.
-	
+
 v1.9
 	Save and Load project options added.
 	
 v1.9.1
 	Fixed bubble size change after edits. 
 	Error: bubble size change after Undo
-	
+
 v1.9.2
 	Replaced buttons with icons. 
 	Fixed bubble size change after Zoom -> Undo
 	Fixed Undo remove multiple balloons. 
-	
+
 v1.9.3
 	Ongoing: Show file name when project is loaded. 
 	Can correctly load project with balloon and leader line.
 
 v1.9.4
 	Cosmetic update for balloon Size and Text Box Size icons.
+
+v1.9.5
+	Fixed text box not loading with project issue. 
+	Fixed text box position not updated in saved pdf issue.
+	Balloon Size is now saved and can now be saved and loaded with project.
+
+v1.9.6
+	loading project now show the name of pdf used. 
+	Error: if pdf is already loaded window still opens. 
+	
+v1.9.7
+	Added instructions icon. 
+	Added alert if opened with firefox.
+	Renamed app and added icon. 
+	************Fixing security error when loading pdf with project. 
+	
+	
 	
 	
 Note: 
@@ -105,9 +124,12 @@ Bugs:
 	Text Box Dimensions dont update in saved pdf after zoom is changed. Workaround- resize after zoom to update. v1.8.2
 	
 	
+
+	
 Prompt: In my web app for ballooning pdf/image file, I added an option to save (save-project-btn) and load (load-project-input)the project as json. The json need to save bubbles, lines, text boxes and zoom level. So later when I load the json after opening the pdf, it will load the bubbles and other items that I can edit. Currently its not working. Code: 
 
 In my web app for ballooning pdf/image file, I want the balloons (with number/text) of a 'Balloon Text Size' to be consistent at different zoom level. Currently, if I make balloon at one zoom, then change zoom and click the new balloon appear to be same size as the first balloon (after scaling for new zoom). BUT sometimes when I click Undo, the size of bubbles that I created changes
+
 
 
 </pre>
