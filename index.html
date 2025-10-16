@@ -2,11 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Bubble drawing tool</title>
+  <title>Bubble Drawing Tool</title>
   <!-- App Icon / Favicon -->
 	<link rel="icon" type="image/png" href="icon.png" />
-	<link rel="apple-touch-icon" href="icon.png" />
-	<meta name="theme-color" content="#14ab27" />
   <style>	
     body {
       margin: 0;
@@ -158,8 +156,12 @@
 	  border-radius: 4px;
 	  background: rgba(255,255,255,0.8);
 	  pointer-events: auto; 					/* allow editing */
+	  transition: border-color 0.15s ease;
 	}
 	
+	.textbox:hover {
+	  border-color: #007bff80; /* faint blue border on hover */
+	}
 	.textbox:focus {
 	  border: 2px solid #007bff;   				/* blue border when editing */
 	  background: rgba(255,255,255,1);
@@ -231,33 +233,25 @@
     <input id="zoom-range" type="range" min="50" max="500" step="10" value="100" />
     <span id="zoom-level">100%</span>
 	<button id="zoom-in" title="Zoom in"><i class="fas fa-search-plus"></i></button>
-
     <input type="file" id="file-input" accept=".pdf,.png,.jpg,.jpeg,.webp" />
 	<span id="pdf-name-label" style="font-weight: bold; color: #007bff;">No file selected</span>
-	
 	<button id="save-project-btn" title="Save Project"><i class="fas fa-save"></i></button>
 	<input type="file" id="load-project-input" accept=".json" style="display:none;" />
 	<button id="load-project-btn" title="Load Project"><i class="fas fa-folder-open"></i></button>
-
 	<div class="toolbar-group">
 		<label for="text-size"><i class="fas fa-font"></i> Balloon Size:</label>
 		<input type="number" id="text-size" value="16" min="8" max="100" step="1" />
 	</div>
-	
     <div class="toolbar-group">
 		<label for="balloon-color">Balloon Color:</label>
 		<input type="color" id="balloon-color" value="#14ab27" />
-
 	</div>
-	
 	<div class="toolbar-group">
 		<label for="export-filename">Filename:</label>
 		<input type="text" id="export-filename" value="bubble drawing" />
 	</div>
-
 	<button id="save-pdf-btn" title="Save as PDF"><i class="fas fa-file-pdf"></i></button>
 	<button id="undo-btn" title="Undo"><i class="fas fa-undo"></i></button>
-	<button id="move-mode" title="Move"><i class="fas fa-arrows-alt"></i></button>
 	<button id="toggle-line-mode" title="Enable Leader Line Mode"><i class="fas fa-link"></i></button>
 	<button id="toggle-textbox" title="Enable Text Box Mode"><i class="fas fa-font"></i></button>
 	
@@ -269,29 +263,36 @@
 	  <i class="fas fa-question-circle"></i>
 	</button>
   </div>
-
   <div id="container">
     <canvas id="pdf-canvas"></canvas>
     <svg id="line-layer"></svg>
     <div id="balloon-layer"></div>
 	<div id="textbox-layer"></div>
   </div>
-  
  	<div id="help-popup" class="hidden">
 	  <div class="help-content">
 		<span id="help-close">&times;</span>
 		<h2>Bubble Drawing Tool Instructions</h2>
-		<p><b>Load a PDF or image:</b> Click the file icon to import your document.</p>
+		<p><b>Select File:</b> Click <b>“Select File”</b> and choose a PDF or image to open.</p>
 		<img src="S:\QS\4. Projekte\Ballooning Tool\Images\open_file.PNG" alt="Load File Screenshot" style="width: 100%; border: 1px solid #ccc; margin-bottom: 15px;">
-		<p><b>Add balloons:</b> Click anywhere on the page to add a balloon marker.</p>
-		<p><b>Leader lines:</b> Enable Line Mode and drag from one balloon to another.</p>
-		<p><b>Text boxes:</b> Enable Text Box Mode to insert text areas.</p>
-		<p><b>Save your work:</b> Use "Save Project" to store, or "Save PDF" to export.</p>
-		<img src="S:\QS\4. Projekte\Ballooning Tool\Images\file_names.png" alt="File Names Screenshot" style="width: 100%; border: 1px solid #ccc; margin-bottom: 15px;">
+		<p><b>Create Balloon:</b> Click anywhere to add a balloon. Adjust size and color using the inputs. Pick with the color picker (default RGB 20,171,39) or eyedropper from the PDF.</p>
+		<p><b>Delete Balloon:</b> Right-click a balloon to delete it. Optionally renumber remaining balloons.</p>
+		<p><b>Edit Balloon:</b> Double click a balloon to change its number. If the number entered already exist, the existing balloons are incremented by 1.</p>
+		<p><b>Move Balloon:</b> Drag balloons to reposition. A grid snaps them into place.</p>
+		<p><b>Balloon with Line:</b> Enable <b>“Leader Line Mode”</b> to add a line to balloons. Disable to create balloons only.</p>
+		<p><b>Text Box:</b> Enable <b>Text Box Mode</b>, click to create, and resize as needed. Click the right edge to reselect, press Delete to remove.</p>
+		<p><b>Save Project:</b> Saves all annotations and zoom level in a JSON file for later editing.</p>
+		<p><b>Load Project:</b> Click <b>“Load Project”</b>, select the JSON file and PDF. To load onto a different file:</p>
+		<ol class="instruction-list">
+		  <li>Open the new file.</li>
+		  <li>Click <b>“Load Project”</b> and select the JSON.</li>
+		  <li>Click <b>Cancel</b> when prompted for PDF.</li>
+		  <li>Confirm popups with <b>OK</b>.</li>
+		</ol>
+		<p><b>Save as PDF:</b> Generates a PDF with all annotations. Zoom level affects image quality — higher zoom = better quality.</p>
 		<p><b>Undo:</b> Click the Undo button to revert your last action.</p>
 	  </div>
 	</div>
-  
   <script>
     // Globals
     let pdfDoc = null;
@@ -301,7 +302,6 @@
     let originalPageWidth = 0;
     let originalPageHeight = 0;
     let currentImage = null;        // store loaded image (if any)
-	let moveMode = false;
 	let isRendering = false;
 	let pendingRender = null;
 	let isTextBoxMode = false;
@@ -326,7 +326,7 @@
     let pendingBalloon = null;
     let lines = []; // {fromX,fromY,toX,toY,color,svgLine,fromBalloon,toBalloon,fromHandle,toHandle}
 	
-	// Browser check: do not allow firefox browser
+// Browser check: do not allow firefox browser
 	(function() {
 		const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
 		if (isFirefox) {
@@ -336,7 +336,100 @@
 		}
 	  })();
 
-    // ---------- helper / history functions ----------
+// ---------- file loading ----------
+    document.getElementById('file-input').addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+	  
+	  originalFileName = file.name;
+	  document.getElementById("pdf-name-label").textContent = file.name;
+	  document.getElementById("pdf-name-label").style.color = "#007bff";
+	  
+      if (file.type === 'application/pdf') {
+        currentImage = null;
+        originalFileName = file.name.replace(/\.pdf$/i, '');
+        exportFilenameInput.value = `${originalFileName}_bubble drawing`;
+
+        const reader = new FileReader();
+        reader.onload = function () {
+        const typedarray = new Uint8Array(this.result);
+        pdfjsLib.getDocument(typedarray).promise.then(pdf => {
+		  pdfDoc = pdf;
+		  renderPage(pageNum).then(() => {
+			setPdfScale(scale);
+			resetAnnotations();
+			historyStack = [];
+			saveStateToHistory();
+		  });
+		});
+        };
+        reader.readAsArrayBuffer(file);
+
+      } else if (file.type.startsWith('image/')) {
+        loadImageFile(file);
+      } else {
+        alert('Please select a PDF or an image file (PNG, JPG, JPEG, WEBP).');
+      }
+    });
+
+    function loadImageFile(file) {
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const img = new Image();
+        img.onload = function () {
+          currentImage = img;
+          pdfDoc = null; // clear any loaded pdf
+          originalFileName = file.name.replace(/\.[^/.]+$/, '');
+          exportFilenameInput.value = `${originalFileName}_bubble drawing`;
+          originalPageWidth = img.width;
+          originalPageHeight = img.height;
+
+          // draw at current scale
+          setPdfScale(scale);
+
+          resetAnnotations();
+          historyStack = [];
+          saveStateToHistory();
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+// renderPage now RETURNS a promise so callers can chain after rendering completes
+    function renderPage(num) {
+      if (!pdfDoc) return Promise.resolve();
+      return pdfDoc.getPage(num).then(page => {
+        const unscaledViewport = page.getViewport({ scale: 1.0 });
+        originalPageWidth = unscaledViewport.width;
+        originalPageHeight = unscaledViewport.height;
+
+        const viewport = page.getViewport({ scale });
+        canvas.width = Math.round(viewport.width);
+        canvas.height = Math.round(viewport.height);
+
+        // adjust overlay sizes
+        balloonLayer.style.width = canvas.width + 'px';
+        balloonLayer.style.height = canvas.height + 'px';
+        lineLayer.setAttribute('width', canvas.width);
+        lineLayer.setAttribute('height', canvas.height);
+        lineLayer.style.width = canvas.width + 'px';
+        lineLayer.style.height = canvas.height + 'px';
+
+        const renderContext = { canvasContext: ctx, viewport: viewport };
+        return page.render(renderContext).promise;
+      });
+    }
+
+// ---------- annotation utilities ----------
+    function resetAnnotations() {
+      balloonLayer.innerHTML = '';
+      lineLayer.innerHTML = '';
+      lines = [];
+      pendingBalloon = null;
+    }
+	
+// ---------- helper / history functions ----------
     function saveStateToHistory() {
 	  const balloonData = [];
 	  balloonLayer.querySelectorAll('.balloon').forEach(balloon => {
@@ -411,108 +504,8 @@
 		drawLineBetween(fromX, fromY, toX, toY, l.color, fromBalloon, toBalloon); 
       });
     }
-
-    document.getElementById("move-mode").addEventListener("click", () => {
-	  moveMode = !moveMode;
-	  const btn = document.getElementById("move-mode");
-	  btn.classList.toggle("active-btn", moveMode);
-	});
-		
 	
 	document.getElementById('undo-btn').addEventListener('click', restoreLastState);
-
-    // ---------- file loading ----------
-    document.getElementById('file-input').addEventListener('change', e => {
-      const file = e.target.files[0];
-      if (!file) return;
-	  
-	  originalFileName = file.name;
-	  document.getElementById("pdf-name-label").textContent = file.name;
-	  document.getElementById("pdf-name-label").style.color = "#007bff";
-	  
-      if (file.type === 'application/pdf') {
-        currentImage = null;
-        originalFileName = file.name.replace(/\.pdf$/i, '');
-        exportFilenameInput.value = `${originalFileName}_bubble drawing`;
-
-        const reader = new FileReader();
-        reader.onload = function () {
-        const typedarray = new Uint8Array(this.result);
-        pdfjsLib.getDocument(typedarray).promise.then(pdf => {
-		  pdfDoc = pdf;
-		  renderPage(pageNum).then(() => {
-			setPdfScale(scale);
-			resetAnnotations();
-			historyStack = [];
-			saveStateToHistory();
-		  });
-		});
-        };
-        reader.readAsArrayBuffer(file);
-
-      } else if (file.type.startsWith('image/')) {
-        loadImageFile(file);
-      } else {
-        alert('Please select a PDF or an image file (PNG, JPG, JPEG, WEBP).');
-      }
-    });
-
-    function loadImageFile(file) {
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        const img = new Image();
-        img.onload = function () {
-          currentImage = img;
-          pdfDoc = null; // clear any loaded pdf
-          originalFileName = file.name.replace(/\.[^/.]+$/, '');
-          exportFilenameInput.value = `${originalFileName}_bubble drawing`;
-          originalPageWidth = img.width;
-          originalPageHeight = img.height;
-
-          // draw at current scale
-          setPdfScale(scale);
-
-          resetAnnotations();
-          historyStack = [];
-          saveStateToHistory();
-        };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
-    }
-
-    // renderPage now RETURNS a promise so callers can chain after rendering completes
-    function renderPage(num) {
-      if (!pdfDoc) return Promise.resolve();
-      return pdfDoc.getPage(num).then(page => {
-        const unscaledViewport = page.getViewport({ scale: 1.0 });
-        originalPageWidth = unscaledViewport.width;
-        originalPageHeight = unscaledViewport.height;
-
-        const viewport = page.getViewport({ scale });
-        canvas.width = Math.round(viewport.width);
-        canvas.height = Math.round(viewport.height);
-
-        // adjust overlay sizes
-        balloonLayer.style.width = canvas.width + 'px';
-        balloonLayer.style.height = canvas.height + 'px';
-        lineLayer.setAttribute('width', canvas.width);
-        lineLayer.setAttribute('height', canvas.height);
-        lineLayer.style.width = canvas.width + 'px';
-        lineLayer.style.height = canvas.height + 'px';
-
-        const renderContext = { canvasContext: ctx, viewport: viewport };
-        return page.render(renderContext).promise;
-      });
-    }
-
-    // ---------- annotation utilities ----------
-    function resetAnnotations() {
-      balloonLayer.innerHTML = '';
-      lineLayer.innerHTML = '';
-      lines = [];
-      pendingBalloon = null;
-    }
 
 	function createBalloonFromData(data) {
 	  const balloon = document.createElement('div');
@@ -644,6 +637,36 @@
 	  // Case 3: "other" → no renumbering
 	}
 	
+	function renumberForInsertion(newLabel, editedBalloon) {
+	  const info = splitLabel(newLabel);
+
+	  // Only act if it's a pure number (not "2a", "A", etc.)
+	  if (info.type === "number") {
+		// Check if that number already exists
+		let exists = false;
+		balloonLayer.querySelectorAll('.balloon').forEach(b => {
+		  if (b === editedBalloon) return; // skip the one being edited
+		  const bi = splitLabel(b.textContent);
+		  if (bi.type === "number" && bi.base === info.base) {
+			exists = true;
+		  }
+		});
+
+		// Only shift others if that number already exists
+		if (exists) {
+		  balloonLayer.querySelectorAll('.balloon').forEach(b => {
+			if (b === editedBalloon) return;
+			const bi = splitLabel(b.textContent);
+			if ((bi.type === "number" || bi.type === "numberSuffix") && bi.base >= info.base) {
+			  b.textContent = (bi.base + 1) + (bi.suffix || "");
+			}
+		  });
+		}
+	  }
+
+	  // If user entered "2a" or letters etc. → do nothing
+	}
+
     // drag/edit/delete balloons (same logic as before)
     function attachBalloonEvents(balloon) {
       let isDragging = false;
@@ -680,17 +703,26 @@
           saveStateToHistory();
         }
       });
+	  
+	  balloon.addEventListener('dblclick', e => {
+		  e.stopPropagation();
 
-      balloon.addEventListener('click', e => {
-        e.stopPropagation();
-		if (!moveMode) {
-			const newText = prompt('Edit balloon text:', balloon.textContent);
-			if (newText !== null && newText.trim() !== '') {
-			  balloon.textContent = newText.trim();
+		  const oldText = balloon.textContent;
+		  const newText = prompt('Edit balloon text:', oldText);
+
+		  if (newText !== null && newText.trim() !== '' && newText.trim() !== oldText) {
+			  const trimmed = newText.trim();
+
+			  // Shift other balloons before applying the new number
+			  renumberForInsertion(trimmed, balloon);
+
+			  // Now apply the user’s new label
+			  balloon.textContent = trimmed;
+
 			  const fontSize = parseInt(document.getElementById('text-size').value) || 16;
 			  balloon.style.fontSize = (fontSize * scale) + 'px';
 
-			  // keep center
+			  // Keep balloon centered (same as before)
 			  const rect = balloon.getBoundingClientRect();
 			  const containerRect = balloonLayer.getBoundingClientRect();
 			  const centerX = rect.left - containerRect.left + rect.width / 2;
@@ -699,27 +731,29 @@
 			  balloon.style.left = '0px';
 			  balloon.style.top = '0px';
 			  const newRect = balloon.getBoundingClientRect();
-			  const newLeft = centerX - newRect.width / 2;
-			  const newTop = centerY - newRect.height / 2;
+			  balloon.style.left = (centerX - newRect.width / 2) + 'px';
+			  balloon.style.top = (centerY - newRect.height / 2) + 'px';
 
-			  balloon.style.left = newLeft + 'px';
-			  balloon.style.top = newTop + 'px';
 			  saveStateToHistory();
 			}
-		}
-      });
+		});
 
       balloon.addEventListener('contextmenu', e => {
 		  e.preventDefault();
 		  e.stopPropagation();
 
 		  const shouldRenumber = confirm('Renumber balloons after deleting?');
-		  
 		  const deletedLabel = balloon.textContent;
+		  
 		  // remove balloon and its connected lines
 		  balloon.remove();
 		  removeLinesConnectedTo(balloon);
-
+		  
+		  // clear pendingBalloon if it points to the deleted balloon
+		  if (pendingBalloon?.balloon === balloon) {
+			pendingBalloon = null;
+		  }
+		  
 		  if (shouldRenumber) {
 			renumberAfterDeletion(deletedLabel);
 		  }
@@ -866,73 +900,6 @@
       return handle;
     }
 	
-	// -------------Text Box Size Input -------------------------- //
-	textboxSizeInput.addEventListener("input", () => {
-	  const size = parseInt(textboxSizeInput.value) || 14;
-
-	  // If a textbox is focused (clicked into), change its font size
-	  const active = document.activeElement;
-	  if (active && active.classList.contains("textbox")) {
-		active.style.fontSize = size + "px";
-		saveStateToHistory();
-	  }
-	});
-	
-	function trackTextBoxResize(tb) {
-	  const observer = new ResizeObserver(() => {
-		tb.dataset.wNorm = tb.offsetWidth / canvas.width;
-		tb.dataset.hNorm = tb.offsetHeight / canvas.height;
-	  });
-	  observer.observe(tb);
-	}
-	
-	// -------------Text Box Drag Function -----------------------//
-	function makeTextBoxDraggable(tb) {
-	  let isDragging = false;
-	  let offsetX = 0, offsetY = 0;
-
-	  tb.addEventListener("mousedown", e => {
-		// Only start drag if:
-		// - clicked directly on the box
-		// - not inside text editing
-		// - not on the resize handle
-		if (e.target !== tb) return;
-
-		const rect = tb.getBoundingClientRect();
-		const border = 8; // pixels near edge = resize zone
-		const withinResize =
-		  e.offsetX > rect.width - border ||
-		  e.offsetY > rect.height - border;
-
-		if (withinResize) return; // let browser handle resizing
-
-		isDragging = true;
-		const containerRect = textboxLayer.getBoundingClientRect();
-		offsetX = e.clientX - rect.left;
-		offsetY = e.clientY - rect.top;
-		e.preventDefault();
-	  });
-
-	  document.addEventListener("mousemove", e => {
-		if (!isDragging) return;
-		const containerRect = textboxLayer.getBoundingClientRect();
-		const x = e.clientX - containerRect.left - offsetX;
-		const y = e.clientY - containerRect.top - offsetY;
-		tb.style.left = x + "px";
-		tb.style.top = y + "px";
-		tb.dataset.xNorm = x / canvas.width;
-		tb.dataset.yNorm = y / canvas.height;
-
-	  });
-
-	  document.addEventListener("mouseup", () => {
-		if (isDragging) {
-		  isDragging = false;
-		  saveStateToHistory();
-		}
-	  });
-	}
-	
     // ---------- leader line mode toggle + clicks to create balloons/lines ----------
     document.getElementById('toggle-line-mode').addEventListener('click', () => {
 	  leaderLineMode = !leaderLineMode;
@@ -954,10 +921,11 @@
 	  const scaledFontSize = textSize * scale;
 	  
       if (leaderLineMode) {
-        if (!pendingBalloon) {
+        if (!pendingBalloon || !pendingBalloon.balloon?.isConnected) {
+		  // Only create balloon, DO NOT save yet
           const balloon = createNewBalloon(x, y, scaledFontSize);
           pendingBalloon = { balloon, centerX: x, centerY: y };
-		  saveStateToHistory();
+		  //saveStateToHistory();
         } else {
           drawLineBetween(pendingBalloon.centerX, pendingBalloon.centerY, x, y, pendingBalloon.balloon.style.backgroundColor, pendingBalloon.balloon, null);
           pendingBalloon = null;
@@ -969,8 +937,95 @@
       }
     });
 	
+	// -------------Text Box Size Input -------------------------- //
+	textboxSizeInput.addEventListener("input", () => {
+	  const size = parseInt(textboxSizeInput.value) || 14;
+
+	  // If a textbox is focused (clicked into), change its font size
+	  const active = document.activeElement;
+	  if (active && active.classList.contains("textbox")) {
+		active.style.fontSize = size + "px";
+		saveStateToHistory();
+	  }
+	});
+	
+	function trackTextBoxResize(tb) {
+	  const observer = new ResizeObserver(() => {
+		tb.dataset.wNorm = tb.offsetWidth / canvas.width;
+		tb.dataset.hNorm = tb.offsetHeight / canvas.height;
+	  });
+	  observer.observe(tb);
+	}
+
+	// -------------Text Box Drag Function -----------------------//
+	function makeTextBoxDraggable(tb) {
+	  let isDragging = false;
+	  let offsetX = 0, offsetY = 0;
+	  const edgeMargin = 6; // px area to detect drag edges
+
+	  tb.addEventListener("mousemove", e => {
+		const rect = tb.getBoundingClientRect();
+		const onEdge =
+		  e.offsetX < edgeMargin ||
+		  e.offsetY < edgeMargin ||
+		  e.offsetX > rect.width - edgeMargin ||
+		  e.offsetY > rect.height - edgeMargin;
+
+		// Don’t override cursor if over native resize handles
+		const nearCorner = e.offsetX > rect.width - 12 && e.offsetY > rect.height - 12;
+		tb.style.cursor = nearCorner ? "se-resize" : onEdge ? "move" : "text";
+	  });
+
+	  tb.addEventListener("mousedown", e => {
+		const rect = tb.getBoundingClientRect();
+		const nearCorner = e.offsetX > rect.width - 12 && e.offsetY > rect.height - 12;
+		if (nearCorner) return; // let browser resize
+
+		const onEdge =
+		  e.offsetX < edgeMargin ||
+		  e.offsetY < edgeMargin ||
+		  e.offsetX > rect.width - edgeMargin ||
+		  e.offsetY > rect.height - edgeMargin;
+
+		if (onEdge) {
+		  isDragging = true;
+		  const containerRect = textboxLayer.getBoundingClientRect();
+		  offsetX = e.clientX - rect.left;
+		  offsetY = e.clientY - rect.top;
+		  e.preventDefault();
+		  tb.style.cursor = "move";
+		} else {
+		  tb.focus();
+		}
+	  });
+
+	  document.addEventListener("mousemove", e => {
+		if (!isDragging) return;
+		const containerRect = textboxLayer.getBoundingClientRect();
+		const x = e.clientX - containerRect.left - offsetX;
+		const y = e.clientY - containerRect.top - offsetY;
+		tb.style.left = x + "px";
+		tb.style.top = y + "px";
+		tb.dataset.xNorm = x / canvas.width;
+		tb.dataset.yNorm = y / canvas.height;
+	  });
+
+	  document.addEventListener("mouseup", () => {
+		if (isDragging) {
+		  isDragging = false;
+		  tb.style.cursor = "text";
+		  saveStateToHistory();
+		}
+	  });
+	}
+
+
 	// --------------Text Box -------------------------------
-	document.getElementById("toggle-textbox").addEventListener("click", () => {
+	document.getElementById("toggle-textbox").addEventListener("click", () => {	  
+	  if (document.activeElement.classList.contains("textbox")) {
+		document.activeElement.blur();
+	  }
+	  currentTextBox = null;
 	  isTextBoxMode = !isTextBoxMode;
 
 	  const btn = document.getElementById("toggle-textbox");
@@ -978,6 +1033,7 @@
 
 	  btn.classList.toggle("active-btn", isTextBoxMode);
 	  textboxLayer.style.pointerEvents = isTextBoxMode ? "auto" : "none";
+
 	});
 	
 	let currentTextBox = null;
@@ -988,6 +1044,8 @@
 	textboxLayer.addEventListener("mousedown", e => {
 	  if (!isTextBoxMode) return;
 	  
+	  if (document.activeElement.classList.contains("textbox")) return;
+	   
 	  if (e.target.classList.contains("textbox") || e.target.closest(".textbox")) {
 		return; // If clicking inside an existing textbox, do nothing (let it be resized/edited)
 	  }
@@ -1006,16 +1064,26 @@
 	  currentTextBox.style.fontSize = textboxSizeInput.value + "px";
 
 	  // store normalized position/size so zoom works
-		currentTextBox.dataset.xNorm = startX / canvas.width;
-		currentTextBox.dataset.yNorm = startY / canvas.height;
-		currentTextBox.dataset.wNorm = (parseFloat(currentTextBox.style.width) || 50) / canvas.width;
-		currentTextBox.dataset.hNorm = (parseFloat(currentTextBox.style.height) || 20) / canvas.height;
+	  currentTextBox.dataset.xNorm = startX / canvas.width;
+	  currentTextBox.dataset.yNorm = startY / canvas.height;
+	  currentTextBox.dataset.wNorm = (parseFloat(currentTextBox.style.width) || 50) / canvas.width;
+	  currentTextBox.dataset.hNorm = (parseFloat(currentTextBox.style.height) || 20) / canvas.height;
 
 	  textboxLayer.appendChild(currentTextBox);
 	  makeTextBoxDraggable(currentTextBox);
 	  trackTextBoxResize(currentTextBox);
-
+	  setTimeout(() => {
+		  currentTextBox.focus();
+		}, 0);
+	// ----- DISABLE TEXT BOX MODE AFTER FIRST CREATION -----
+	  isTextBoxMode = false;
+	  const btn = document.getElementById("toggle-textbox");
+	  btn.classList.remove("active-btn");
+	  btn.title = "Enable Text Box Mode";
+	  textboxLayer.style.pointerEvents = "none";
+	  
 	  function resize(eMove) {
+		if (!currentTextBox) return;
 		currentTextBox.style.width = (eMove.offsetX - startX) + "px";
 		currentTextBox.style.height = (eMove.offsetY - startY) + "px";
 	  }
@@ -1035,8 +1103,17 @@
 	  textboxLayer.addEventListener("mouseup", stop);
 	});
 
+// --------------Delete text box with delete key------------- //
+	document.addEventListener("keydown", e => {
+	  if ((e.key === "Delete") &&
+		  document.activeElement.classList.contains("textbox")) {
+		const tb = document.activeElement;
+		tb.remove();
+		saveStateToHistory();
+	  }
+	});
 	
-    // ---------- export to PDF (lines + balloons scaled back to original doc size) ----------
+// ---------- export to PDF (lines + balloons scaled back to original doc size) ----------
     document.getElementById('save-pdf-btn').addEventListener('click', async () => {
       try {
         // choose export filename
@@ -1365,16 +1442,6 @@
       const newPerc = Math.min(500, Math.round(scale*100) + 10);
       setPdfScale(newPerc / 100);
     });
-	
-	// --------------Delete text box with delete key------------- //
-	document.addEventListener("keydown", e => {
-	  if ((e.key === "Delete") &&
-		  document.activeElement.classList.contains("textbox")) {
-		const tb = document.activeElement;
-		tb.remove();
-		saveStateToHistory();
-	  }
-	});
 
 	// --------------Save Project ------------- //
 	document.getElementById("save-project-btn").addEventListener("click", async () => {
@@ -1479,28 +1546,38 @@
 		  pdfNameLabel.style.color = "gray";
 		}
 
-	  //---- Try to auto-load the original PDF (if info exists) ---
-	  if (project.meta?.originalFileName && project.meta.fileType === 'pdf') {
-		try {
-		  const matchingPDF = await promptForMatchingPDF(project.meta.originalFileName);
-		  if (matchingPDF) {
-			await openPDFFile(matchingPDF); // wait until the PDF is fully rendered
-		  } else {
-			alert(`PDF "${project.meta.originalFileName}" not found. Please open it manually first.`);
+	  //---- Try to auto-load the original PDF or Image (if info exists) ---
+		if (project.meta?.originalFileName) {
+		  try {
+			if (project.meta.fileType === 'pdf') {
+			  const matchingPDF = await promptForMatchingPDF(project.meta.originalFileName);
+			  if (matchingPDF) {
+				await openPDFFile(matchingPDF);
+			  } else {
+				alert(`PDF "${project.meta.originalFileName}" not found. Please open it manually first.`);
+			  }
+			} else if (project.meta.fileType === 'image') {
+			  const matchingImage = await promptForMatchingImage(project.meta.originalFileName);
+			  if (matchingImage) {
+				await openImageFile(matchingImage);
+			  } else {
+				alert(`Image "${project.meta.originalFileName}" not found. Please open it manually first.`);
+			  }
+			}
+		  } catch (err) {
+			console.error('File auto-load failed:', err);
+			alert('Could not load the original file automatically. Please open it manually first.');
 		  }
-		} catch (err) {
-		  console.error('PDF auto-load failed:', err);
-		  alert('Could not load the original PDF automatically. Please open it manually first.');
-		}
-	  }
- 
-	  // --- Wait until PDF is fully rendered and scaled ---
-		if (project.meta?.fileType === 'pdf' && pdfDoc) {
-		  // Make sure PDF finished rendering before scaling
-		  await new Promise(resolve => setTimeout(resolve, 100)); // short wait
-		  await setPdfScale(project.meta.scale || scale);
 		}
 
+	  // --- Wait until PDF is fully rendered and scaled ---
+		if (project.meta?.fileType === 'pdf' && pdfDoc) {
+		  await new Promise(resolve => setTimeout(resolve, 100)); // short wait
+		  await setPdfScale(project.meta.scale || scale);
+		} else if (project.meta?.fileType === 'image') {
+		  await new Promise(resolve => setTimeout(resolve, 100));
+		  await setPdfScale(project.meta.scale || scale);
+		}
 		// --- Now safe to clear and restore annotations ---
 		resetAnnotations();
 		historyStack = [];
@@ -1578,6 +1655,22 @@
 	  }
 	  return null;
 	}
+	
+	async function promptForMatchingImage(fileName) {
+	  if (!('showOpenFilePicker' in window)) return null;
+
+	  const [handle] = await window.showOpenFilePicker({
+		types: [{
+		  description: 'Image Files', accept: { 'image/*': ['.png', '.jpg', '.jpeg', '.webp'] }
+		}]
+	  });
+
+	  const file = await handle.getFile();
+	  if (file.name.toLowerCase().includes(fileName.toLowerCase())) {
+		return file;
+	  }
+	  return null;
+	}
 
 	async function openPDFFile(file) {
 	  return new Promise((resolve, reject) => {
@@ -1597,6 +1690,33 @@
 		};
 		reader.onerror = reject;
 		reader.readAsArrayBuffer(file);
+	  });
+	}
+	
+	async function openImageFile(file) {
+	  return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = function (e) {
+		  const img = new Image();
+		  img.onload = function () {
+			const ctx = canvas.getContext('2d');
+			currentImage = img;
+			canvas.width = img.width;
+			canvas.height = img.height;
+			ctx.drawImage(img, 0, 0);
+			// Set scale appropriately (like with PDFs)
+			const scaleX = canvas.clientWidth / img.width;
+			const scaleY = canvas.clientHeight / img.height;
+			scale = Math.min(scaleX, scaleY);
+
+			originalFileName = file.name.replace(/\.[^/.]+$/, '');
+			resolve();
+		  };
+		  img.onerror = reject;
+		  img.src = e.target.result;
+		};
+		reader.onerror = reject;
+		reader.readAsDataURL(file);
 	  });
 	}
 
