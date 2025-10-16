@@ -105,6 +105,24 @@ v1.9.7
 	Added instructions icon. 
 	Added alert if opened with firefox.
 	Renamed app and added icon. 
+	
+v1.9.8
+	Now 'image projects' can be loaded. 
+	Updated undo logic to teat bubble and its line as a single state. 
+	Fixed error due to bubble deleted after leader line is enabled. 
+
+v1.9.9.1
+	removed 'Move mode'. 
+	Moving a balloon do not open the edit window popup. 
+	Double click opens the edit popup. 
+	Text Box mode now disable automatically after first click.
+	
+v1.9.9.2
+	Reworked Text Box creation logic to make it easier to edit and resize. 	
+	
+v2.0
+	In progress: Auto increment for duplicate number. 
+	
 	************Fixing security error when loading pdf with project. 
 	
 	
