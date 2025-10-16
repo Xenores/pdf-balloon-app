@@ -121,7 +121,7 @@ v1.9.9.2
 	Reworked Text Box creation logic to make it easier to edit and resize. 	
 	
 v2.0
-	In progress: Auto increment for duplicate number. 
+	Added Auto increment for duplicate number. 
 	
 	************Fixing security error when loading pdf with project. 
 	
