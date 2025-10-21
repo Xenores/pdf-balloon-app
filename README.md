@@ -121,7 +121,23 @@ v1.9.9.2
 	Reworked Text Box creation logic to make it easier to edit and resize. 	
 	
 v2.0
-	Added Auto increment for duplicate number. 
+	Added auto increment for duplicate number. 
+
+v2.1
+	Grid size changed from 20 to 5 (4 times more grid points). 
+	
+v2.2
+	Reworked the zoom logic. 
+	Fixed balloon drift  during large zoom. 
+
+v2.3
+	White space added at the top for headings (=50). 
+	Changed icons to be more intuitive. 
+	Translated to Deutsch. 
+	..NOT BACKWARD COMPATIBLE..
+	
+	Fixed Issue: Balloon/Text Box position changes after load project. 
+	Issue: Text box size increase when loading project. 
 	
 	************Fixing security error when loading pdf with project. 
 	
