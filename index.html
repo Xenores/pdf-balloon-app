@@ -8,11 +8,10 @@
   <style>	
     body {
       margin: 0;
-      padding-top: 0.8in; /* space for fixed toolbar */
+      padding-top: 0.8in; 
       font-family: sans-serif;
     }
 
-    /* top toolbar - kept fixed (use absolute units so it's stable across OS scaling) */
     #controls {
       position: fixed;
       top: 0;
@@ -221,46 +220,47 @@
 
   <!-- jsPDF -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <link
-	  rel="stylesheet"
-	  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-	/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  
 </head>
 <body>
   <div id="controls">
     <!-- Zoom controls -->
-	<button id="zoom-out" title="Zoom out"><i class="fas fa-search-minus"></i></button>
-    <input id="zoom-range" type="range" min="50" max="500" step="10" value="100" />
+	<button id="zoom-out" title="Verkleinern"><i class="fas fa-search-minus"></i></button>
+    <input id="zoom-range" type="range" min="10" max="500" step="10" value="100" />
     <span id="zoom-level">100%</span>
-	<button id="zoom-in" title="Zoom in"><i class="fas fa-search-plus"></i></button>
-    <input type="file" id="file-input" accept=".pdf,.png,.jpg,.jpeg,.webp" />
-	<span id="pdf-name-label" style="font-weight: bold; color: #007bff;">No file selected</span>
-	<button id="save-project-btn" title="Save Project"><i class="fas fa-save"></i></button>
+	<button id="zoom-in" title="Vergrößern"><i class="fas fa-search-plus"></i></button>
+    <input type="file" id="file-input" accept=".pdf,.png,.jpg,.jpeg,.webp" style="display: none;"/>
+	<button id="file-picker-btn" title="Datei öffnen"><i class="fa-solid fa-folder-open" style="font-size: 1.2em;"></i></button>
+	
+	<span id="pdf-name-label" style="font-weight: bold; color: #007bff;">Keine Datei ausgewählt</span>
+	<button id="save-project-btn" title="Projekt speichern"><i class="fas fa-save"></i></button>
 	<input type="file" id="load-project-input" accept=".json" style="display:none;" />
-	<button id="load-project-btn" title="Load Project"><i class="fas fa-folder-open"></i></button>
+	<button id="load-project-btn" title="Projekt laden"><i class="bi bi-filetype-json" style="font-size: 1.3em;"></i></button>
 	<div class="toolbar-group">
-		<label for="text-size"><i class="fas fa-font"></i> Balloon Size:</label>
+		<label for="text-size"><i class="bi bi-circle" style="font-size: 1.2em;"></i> Blasengröße:</label>
 		<input type="number" id="text-size" value="16" min="8" max="100" step="1" />
 	</div>
     <div class="toolbar-group">
-		<label for="balloon-color">Balloon Color:</label>
+		<label for="balloon-color">Blasenfarbe:</label>
 		<input type="color" id="balloon-color" value="#14ab27" />
 	</div>
 	<div class="toolbar-group">
-		<label for="export-filename">Filename:</label>
+		<label for="export-filename">Dateiname:</label>
 		<input type="text" id="export-filename" value="bubble drawing" />
 	</div>
-	<button id="save-pdf-btn" title="Save as PDF"><i class="fas fa-file-pdf"></i></button>
-	<button id="undo-btn" title="Undo"><i class="fas fa-undo"></i></button>
-	<button id="toggle-line-mode" title="Enable Leader Line Mode"><i class="fas fa-link"></i></button>
-	<button id="toggle-textbox" title="Enable Text Box Mode"><i class="fas fa-font"></i></button>
+	<button id="save-pdf-btn" title="Als PDF speichern"><i class="fas fa-file-pdf"></i></button>
+	<button id="undo-btn" title="Rückgängig"><i class="fas fa-undo"></i></button>
+	<button id="toggle-line-mode" title="Linienmodus aktivieren"><i class="bi bi-arrow-up-right" style="font-size: 1.3em;"></i></button>
+	<button id="toggle-textbox" title="Textfeldmodus aktivieren"><i class="bi bi-card-text" style="font-size: 1.3em;"></i></button>
 	
 	<div class="toolbar-group">
-		<label for="textbox-size"><i class="fas fa-text-height"></i> Text Box Size:</label>
+		<label for="textbox-size"><i class="fas fa-text-height"></i> Textfeldgröße:</label>
 		<input type="number" id="textbox-size" value="14" min="8" max="100" step="1" />
 	</div>
-	<button id="help-btn" title="Instructions">
-	  <i class="fas fa-question-circle"></i>
+	<button id="help-btn" title="Anweisungen">
+	  <i class="bi bi-info-circle" style="font-size: 1.3em;"></i>
 	</button>
   </div>
   <div id="container">
@@ -305,7 +305,8 @@
 	let isRendering = false;
 	let pendingRender = null;
 	let isTextBoxMode = false;
-
+	
+	const topWhiteSpaceBase = 50;
     const canvas = document.getElementById('pdf-canvas');
     const ctx = canvas.getContext('2d');
     const balloonLayer = document.getElementById('balloon-layer');
@@ -337,6 +338,10 @@
 	  })();
 
 // ---------- file loading ----------
+	
+	document.getElementById('file-picker-btn').addEventListener('click', () => {
+	  document.getElementById('file-input').click();
+	});
     document.getElementById('file-input').addEventListener('change', e => {
       const file = e.target.files[0];
       if (!file) return;
@@ -398,28 +403,43 @@
 
 // renderPage now RETURNS a promise so callers can chain after rendering completes
     function renderPage(num) {
-      if (!pdfDoc) return Promise.resolve();
-      return pdfDoc.getPage(num).then(page => {
-        const unscaledViewport = page.getViewport({ scale: 1.0 });
-        originalPageWidth = unscaledViewport.width;
-        originalPageHeight = unscaledViewport.height;
+	  if (!pdfDoc) return Promise.resolve();
+	  return pdfDoc.getPage(num).then(page => {
+		const unscaledViewport = page.getViewport({ scale: 1.0 });
+		originalPageWidth = unscaledViewport.width;
+		originalPageHeight = unscaledViewport.height;
 
-        const viewport = page.getViewport({ scale });
-        canvas.width = Math.round(viewport.width);
-        canvas.height = Math.round(viewport.height);
+		const viewport = page.getViewport({ scale });
+		// scaled header so it zooms with the page
+		const scaledTopWhiteSpace = Math.round(topWhiteSpaceBase * scale);
 
-        // adjust overlay sizes
-        balloonLayer.style.width = canvas.width + 'px';
-        balloonLayer.style.height = canvas.height + 'px';
-        lineLayer.setAttribute('width', canvas.width);
-        lineLayer.setAttribute('height', canvas.height);
-        lineLayer.style.width = canvas.width + 'px';
-        lineLayer.style.height = canvas.height + 'px';
+		// canvas should include header + page
+		canvas.width = Math.round(viewport.width);
+		canvas.height = Math.round(viewport.height + scaledTopWhiteSpace);
 
-        const renderContext = { canvasContext: ctx, viewport: viewport };
-        return page.render(renderContext).promise;
-      });
-    }
+		// clear and paint white header area
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+		ctx.fillStyle = 'white';
+		ctx.fillRect(0, 0, canvas.width, scaledTopWhiteSpace);
+
+		// render the PDF page below the header
+		const renderContext = { canvasContext: ctx, viewport: viewport };
+		ctx.save();
+		ctx.translate(0, scaledTopWhiteSpace);
+		const renderPromise = page.render(renderContext).promise;
+		renderPromise.then(() => ctx.restore());
+
+		// adjust overlay sizes (they share the same coordinate space as canvas)
+		balloonLayer.style.width = canvas.width + 'px';
+		balloonLayer.style.height = canvas.height + 'px';
+		lineLayer.setAttribute('width', canvas.width);
+		lineLayer.setAttribute('height', canvas.height);
+		lineLayer.style.width = canvas.width + 'px';
+		lineLayer.style.height = canvas.height + 'px';
+
+		return renderPromise;
+	  });
+	}
 
 // ---------- annotation utilities ----------
     function resetAnnotations() {
@@ -687,7 +707,7 @@
         const containerRect = balloonLayer.getBoundingClientRect();
         const x = e.clientX - containerRect.left - offsetX;
         const y = e.clientY - containerRect.top - offsetY;
-        const gridSize = 20; // px per grid cell
+        const gridSize = 5; // px per grid cell
 		const snapX = Math.round(x / gridSize) * gridSize;
 		const snapY = Math.round(y / gridSize) * gridSize;
 		
@@ -742,7 +762,7 @@
 		  e.preventDefault();
 		  e.stopPropagation();
 
-		  const shouldRenumber = confirm('Renumber balloons after deleting?');
+		  const shouldRenumber = confirm('Ballons nach dem Löschen neu nummerieren?');
 		  const deletedLabel = balloon.textContent;
 		  
 		  // remove balloon and its connected lines
@@ -906,7 +926,7 @@
 	  pendingBalloon = null;
 
 	  const btn = document.getElementById('toggle-line-mode');
-	  btn.title = leaderLineMode ? 'Disable Leader Line Mode' : 'Enable Leader Line Mode';
+	  btn.title = leaderLineMode ? 'Linienmodus deaktivieren' : 'Linienmodus aktivieren';
 	  btn.classList.toggle('active-btn', leaderLineMode);
 	});
 
@@ -1029,7 +1049,7 @@
 	  isTextBoxMode = !isTextBoxMode;
 
 	  const btn = document.getElementById("toggle-textbox");
-	  btn.title = isTextBoxMode ? "Disable Text Box Mode" : "Enable Text Box Mode";
+	  btn.title = isTextBoxMode ? "Textfeldmodus deaktivieren" : "Textfeldmodus aktivieren";
 
 	  btn.classList.toggle("active-btn", isTextBoxMode);
 	  textboxLayer.style.pointerEvents = isTextBoxMode ? "auto" : "none";
@@ -1079,7 +1099,7 @@
 	  isTextBoxMode = false;
 	  const btn = document.getElementById("toggle-textbox");
 	  btn.classList.remove("active-btn");
-	  btn.title = "Enable Text Box Mode";
+	  btn.title = "Textfeldmodus aktivieren";
 	  textboxLayer.style.pointerEvents = "none";
 	  
 	  function resize(eMove) {
@@ -1222,7 +1242,7 @@
 		  pdf.setTextColor(0,0,0);
 
 		  const wrapped = pdf.splitTextToSize(text, width - 4); //Padding (2) * 2
-		  pdf.text(wrapped, left + 2, top + scaledFontSize, {
+		  pdf.text(wrapped, left + 2, top + 4, {
 		   maxWidth: width - 4,
 		   align: "left",
 		   baseline: "top"
@@ -1282,152 +1302,178 @@
     // ---------- ZOOM logic (core) ----------
     // setPdfScale(newScale) will scale the canvas (PDF rendering or image redraw),
     // and scale/move existing balloons + lines so they stay at the same places
-    function setPdfScale(newScale) {
-      // clamp between allowed range:
-      newScale = Math.max(0.5, Math.min(5.0, newScale));
-      const oldW = canvas.width || 0;
-      const oldH = canvas.height || 0;
+	function setPdfScale(newScale) {
+	  // Clamp scale
+	  newScale = Math.max(0.1, Math.min(5.0, newScale));
 
-      if (pdfDoc) {
-        // For PDF: compute new viewport size and scale everything accordingly,
-        // then re-render the PDF page.
-        pdfDoc.getPage(pageNum).then(page => {
-          const newViewport = page.getViewport({ scale: newScale });
-          const newW = Math.round(newViewport.width);
-          const newH = Math.round(newViewport.height);
-          const sx = oldW ? (newW / oldW) : 1;
-          const sy = oldH ? (newH / oldH) : 1;
+	  const oldW = canvas.width || 0;
+	  const oldH = canvas.height || 0;
 
-          // scale balloons
-          balloonLayer.querySelectorAll('.balloon').forEach(b => {
-            const left = parseFloat(b.style.left) || 0;
-            const top = parseFloat(b.style.top) || 0;
-            const rect = b.getBoundingClientRect();
-            const centerX = left + rect.width / 2;
-            const centerY = top + rect.height / 2;
-            const newCenterX = centerX * sx;
-            const newCenterY = centerY * sy;
-            const newLeft = newCenterX - (rect.width * sx) / 2;
-            const newTop  = newCenterY - (rect.height * sy) / 2;
-            const fs = parseFloat(window.getComputedStyle(b).fontSize) || parseFloat(b.style.fontSize) || 16;
-            b.style.fontSize = (fs * sx) + 'px';
-            b.style.left = newLeft + 'px';
-            b.style.top = newTop + 'px';
-          });
-		  
-		  // scale textboxes
-			textboxLayer.querySelectorAll('.textbox').forEach(tb => {
-			  // Only calculate normalized values once, if missing
-			  if (!tb.dataset.xNorm || !tb.dataset.yNorm) {
-				const left = parseFloat(tb.style.left) || 0;
-				const top = parseFloat(tb.style.top) || 0;
-				tb.dataset.xNorm = left / oldW;
-				tb.dataset.yNorm = top / oldH;
-			  }
+	  // Helper to scale balloons based on normalized coordinates
+	  function scaleBalloon(b, oldW, oldH, newW, newH) {
+		// Save normalized position once
+		if (!b.dataset.xNorm || !b.dataset.yNorm) {
+		  const rect = b.getBoundingClientRect();
+		  const parentRect = balloonLayer.getBoundingClientRect();
+		  const centerX = rect.left - parentRect.left + rect.width / 2;
+		  const centerY = rect.top - parentRect.top + rect.height / 2;
+		  b.dataset.xNorm = centerX / oldW;
+		  b.dataset.yNorm = centerY / oldH;
 
-			  // Reposition only (don’t recalc size)
-			  const x = parseFloat(tb.dataset.xNorm) * newW;
-			  const y = parseFloat(tb.dataset.yNorm) * newH;
-			  tb.style.left = x + "px";
-			  tb.style.top = y + "px";
-			});
+		  const fs = parseFloat(window.getComputedStyle(b).fontSize) || 16;
+		  b.dataset.fontSizeBase = fs / scale;
+		}
 
-          // scale free-floating line endpoints
-          lines.forEach((line, idx) => {
-            if (!line.fromBalloon) { line.fromX *= sx; line.fromY *= sy; }
-            if (!line.toBalloon)   { line.toX *= sx;   line.toY *= sy; }
-            if (line.svgLine) updateLineSVG(idx, line);
-          });
+		// Compute new exact center using normalized coords
+		const centerX = parseFloat(b.dataset.xNorm) * newW;
+		const centerY = parseFloat(b.dataset.yNorm) * newH;
 
-          // update overlay sizes immediately so position calculations are correct
-          balloonLayer.style.width = newW + 'px';
-          balloonLayer.style.height = newH + 'px';
-          lineLayer.setAttribute('width', newW);
-          lineLayer.setAttribute('height', newH);
-          lineLayer.style.width = newW + 'px';
-          lineLayer.style.height = newH + 'px';
+		// Compute scale ratio for font/size
+		const sx = oldW ? (newW / oldW) : 1;
+		const sy = oldH ? (newH / oldH) : 1;
+		// const s = (sx + sy) / 2; // you have it if you need uniform scale
 
-          // update global scale var and render
-          scale = newScale;
-          return renderPage(pageNum);
-        }).then(() => {
-          // after render we recalc lines that are attached to balloons to match their centers
-          balloonLayer.querySelectorAll('.balloon').forEach(b => updateLinesForBalloon(b));
-          zoomRange.value = Math.round(scale * 100);
-          zoomLevelSpan.textContent = Math.round(scale * 100) + '%';
-        }).catch(err => console.error('Scaling PDF failed', err));
-      } else if (currentImage) {
-        // For image: compute new image size and redraw
-        const newW = Math.round(currentImage.width * newScale);
-        const newH = Math.round(currentImage.height * newScale);
-        const sx = oldW ? (newW / oldW) : 1;
-        const sy = oldH ? (newH / oldH) : 1;
+		// Scale font proportionally (use newScale so logical size * scale)
+		const baseFS = parseFloat(b.dataset.fontSizeBase) || 16;
+		b.style.fontSize = (baseFS * newScale) + 'px';
 
-        // scale balloons
-        balloonLayer.querySelectorAll('.balloon').forEach(b => {
-          const left = parseFloat(b.style.left) || 0;
-          const top = parseFloat(b.style.top) || 0;
-          const rect = b.getBoundingClientRect();
-          const centerX = left + rect.width / 2;
-          const centerY = top + rect.height / 2;
-          const newCenterX = centerX * sx;
-          const newCenterY = centerY * sy;
-          const newLeft = newCenterX - (rect.width * sx) / 2;
-          const newTop  = newCenterY - (rect.height * sy) / 2;
-          const fs = parseFloat(window.getComputedStyle(b).fontSize) || parseFloat(b.style.fontSize) || 16;
-          b.style.fontSize = (fs * sx) + 'px';
-          b.style.left = newLeft + 'px';
-          b.style.top = newTop + 'px';
-        });
-		
-		// scale textboxes
-		textboxLayer.querySelectorAll('.textbox').forEach(tb => {
-		  // Only calculate normalized values once, if missing
-		  if (!tb.dataset.xNorm || !tb.dataset.yNorm) {
-			const left = parseFloat(tb.style.left) || 0;
-			const top = parseFloat(tb.style.top) || 0;
-			tb.dataset.xNorm = left / oldW;
-			tb.dataset.yNorm = top / oldH;
+		// Measure balloon after font scaling
+		const rect = b.getBoundingClientRect();
+		const newLeft = centerX - rect.width / 2;
+		const newTop  = centerY - rect.height / 2;
+
+		b.style.left = newLeft + 'px';
+		b.style.top  = newTop + 'px';
+	  }
+
+	  // Helper to scale textboxes
+	  function scaleTextbox(tb, canvasWidth, canvasHeight) {
+		if (!tb.dataset.xNorm || !tb.dataset.yNorm) {
+		  const left = parseFloat(tb.style.left) || 0;
+		  const top  = parseFloat(tb.style.top) || 0;
+		  tb.dataset.xNorm = left / oldW;
+		  tb.dataset.yNorm = top / oldH;
+		}
+		tb.style.left = (parseFloat(tb.dataset.xNorm) * canvasWidth) + 'px';
+		tb.style.top  = (parseFloat(tb.dataset.yNorm) * canvasHeight) + 'px';
+	  }
+
+	  // Helper to scale all lines
+	  function scaleLines(canvasWidth, canvasHeight) {
+		lines.forEach((line, idx) => {
+		  // Initialize normalized coordinates for free-floating lines
+		  if (!line.fromBalloon && line.fromXNorm === undefined) {
+			line.fromXNorm = line.fromX / oldW;
+			line.fromYNorm = line.fromY / oldH;
+		  }
+		  if (!line.toBalloon && line.toXNorm === undefined) {
+			line.toXNorm = line.toX / oldW;
+			line.toYNorm = line.toY / oldH;
 		  }
 
-		  // Reposition only (don’t recalc size)
-		  const x = parseFloat(tb.dataset.xNorm) * newW;
-		  const y = parseFloat(tb.dataset.yNorm) * newH;
-		  tb.style.left = x + "px";
-		  tb.style.top = y + "px";
+		  // Free-floating lines
+		  if (!line.fromBalloon) {
+			line.fromX = line.fromXNorm * canvasWidth;
+			line.fromY = line.fromYNorm * canvasHeight;
+		  }
+		  if (!line.toBalloon) {
+			line.toX = line.toXNorm * canvasWidth;
+			line.toY = line.toYNorm * canvasHeight;
+		  }
+
+		  // Lines attached to balloons
+		  if (line.fromBalloon) {
+			const rect = line.fromBalloon.getBoundingClientRect();
+			const cont = balloonLayer.getBoundingClientRect();
+			line.fromX = rect.left - cont.left + rect.width / 2;
+			line.fromY = rect.top  - cont.top  + rect.height / 2;
+		  }
+		  if (line.toBalloon) {
+			const rect = line.toBalloon.getBoundingClientRect();
+			const cont = balloonLayer.getBoundingClientRect();
+			line.toX = rect.left - cont.left + rect.width / 2;
+			line.toY = rect.top  - cont.top  + rect.height / 2;
+		  }
+
+		  if (line.svgLine) updateLineSVG(idx, line);
 		});
+	  }
 
-        // scale free-floating lines
-        lines.forEach((line, idx) => {
-          if (!line.fromBalloon) { line.fromX *= sx; line.fromY *= sy; }
-          if (!line.toBalloon)   { line.toX *= sx;   line.toY *= sy; }
-          if (line.svgLine) updateLineSVG(idx, line);
-        });
+	  // Determine new canvas size
+	  let newW, newH;
+	  if (pdfDoc) {
+		pdfDoc.getPage(pageNum).then(page => {
+		  const viewport = page.getViewport({ scale: newScale });
 
-        // resize canvas and redraw scaled image
-        canvas.width = newW; canvas.height = newH;
-        balloonLayer.style.width = newW + 'px';
-        balloonLayer.style.height = newH + 'px';
-        lineLayer.setAttribute('width', newW);
-        lineLayer.setAttribute('height', newH);
-        lineLayer.style.width = newW + 'px';
-        lineLayer.style.height = newH + 'px';
+		  // --- IMPORTANT: include scaled top white space in newH ---
+		  const scaledTopWhiteSpace = Math.round(topWhiteSpaceBase * newScale);
+		  newW = Math.round(viewport.width);
+		  newH = Math.round(viewport.height + scaledTopWhiteSpace);
 
-        ctx.clearRect(0,0,newW,newH);
-        ctx.drawImage(currentImage, 0, 0, newW, newH);
+		  // Scale everything (use oldW/oldH which already included previous header)
+		  balloonLayer.querySelectorAll('.balloon')
+			.forEach(b => scaleBalloon(b, oldW, oldH, newW, newH));
+		  textboxLayer.querySelectorAll('.textbox')
+			.forEach(tb => scaleTextbox(tb, newW, newH));
 
-        scale = newScale;
-        // recompute lines attached to balloons
-        balloonLayer.querySelectorAll('.balloon').forEach(b => updateLinesForBalloon(b));
-        zoomRange.value = Math.round(scale * 100);
-        zoomLevelSpan.textContent = Math.round(scale * 100) + '%';
-      } else {
-        // nothing loaded yet, just store scale
-        scale = newScale;
-        zoomRange.value = Math.round(scale * 100);
-        zoomLevelSpan.textContent = Math.round(scale * 100) + '%';
-      }
-    }
+		  // set overlay sizes to include header
+		  balloonLayer.style.width = newW + 'px';
+		  balloonLayer.style.height = newH + 'px';
+		  lineLayer.setAttribute('width', newW);
+		  lineLayer.setAttribute('height', newH);
+		  lineLayer.style.width = newW + 'px';
+		  lineLayer.style.height = newH + 'px';
+
+		  scale = newScale;
+		  return renderPage(pageNum).then(() => {
+			scaleLines(newW, newH);
+			zoomRange.value = Math.round(scale * 100);
+			zoomLevelSpan.textContent = Math.round(scale * 100) + '%';
+		  });
+		}).catch(err => console.error('Scaling PDF failed', err));
+	  } else if (currentImage) {
+		// compute scaled header and new sizes
+		const scaledTopWhiteSpace = Math.round(topWhiteSpaceBase * newScale);
+		newW = Math.round(currentImage.width * newScale);
+		// full canvas height includes header
+		newH = Math.round(currentImage.height * newScale + scaledTopWhiteSpace);
+
+		// Scale everything (positions use canvas coordinates which include header)
+		balloonLayer.querySelectorAll('.balloon')
+		  .forEach(b => scaleBalloon(b, oldW, oldH, newW, newH));
+		textboxLayer.querySelectorAll('.textbox')
+		  .forEach(tb => scaleTextbox(tb, newW, newH));
+		scaleLines(newW, newH);
+
+		// Resize canvas and redraw scaled image shifted down by header
+		canvas.width = newW;
+		canvas.height = newH;
+		ctx.clearRect(0, 0, newW, newH);
+
+		// fill header white (optional; renderPage for PDFs did that)
+		ctx.fillStyle = 'white';
+		ctx.fillRect(0, 0, newW, scaledTopWhiteSpace);
+
+		// draw image below header
+		ctx.drawImage(currentImage, 0, scaledTopWhiteSpace, newW, newH - scaledTopWhiteSpace);
+
+		balloonLayer.style.width = newW + 'px';
+		balloonLayer.style.height = newH + 'px';
+		lineLayer.setAttribute('width', newW);
+		lineLayer.setAttribute('height', newH);
+		lineLayer.style.width = newW + 'px';
+		lineLayer.style.height = newH + 'px';
+
+		scale = newScale;
+		zoomRange.value = Math.round(scale * 100);
+		zoomLevelSpan.textContent = Math.round(scale * 100) + '%';
+	  } else {
+		// Nothing loaded yet
+		scale = newScale;
+		zoomRange.value = Math.round(scale * 100);
+		zoomLevelSpan.textContent = Math.round(scale * 100) + '%';
+	  }
+	}
 
     // ---------- zoom UI wiring ---------- //
     zoomRange.addEventListener('input', () => {
@@ -1435,7 +1481,7 @@
       setPdfScale(val);
     });
     zoomOutBtn.addEventListener('click', () => {
-      const newPerc = Math.max(50, Math.round(scale*100) - 10);
+      const newPerc = Math.max(10, Math.round(scale*100) - 10);
       setPdfScale(newPerc / 100);
     });
     document.getElementById('zoom-in').addEventListener('click', () => {
@@ -1448,11 +1494,16 @@
 	  let pageWidth = canvas.width;
 	  let pageHeight = canvas.height;
 	  if (pdfDoc) {
-		const pdfPageObj = await pdfDoc.getPage(1);
-		const view = pdfPageObj.view;
-		pageWidth = view[2];
-		pageHeight = view[3];
-	  }
+		  const pdfPageObj = await pdfDoc.getPage(1);
+		  const view = pdfPageObj.view;
+		  const unscaledPageHeight = view[3];
+		  const scaledTopWhiteSpace = topWhiteSpaceBase * scale;
+
+		  pageWidth = view[2];
+		  // include top white space in the saved height
+		  pageHeight = unscaledPageHeight + scaledTopWhiteSpace / scale;
+		}
+		
 	  const balloonSizeInput = document.getElementById("text-size");
 	  const project = {
 		meta: {
@@ -1474,10 +1525,10 @@
 		  color: b.style.backgroundColor
 		})),
 		lines: lines.map(l => ({
-		  fromXNorm: l.fromX / pageWidth,
-		  fromYNorm: l.fromY / pageHeight,
-		  toXNorm: l.toX / pageWidth,
-		  toYNorm: l.toY / pageHeight,
+		  fromXNorm: (l.fromX / scale) / pageWidth,
+		  fromYNorm: (l.fromY / scale) / pageHeight,
+		  toXNorm: (l.toX / scale) / pageWidth,
+		  toYNorm: (l.toY / scale) / pageHeight,
 		  color: l.color,
 		  fromLabel: l.fromBalloon?.textContent || null,
 		  toLabel: l.toBalloon?.textContent || null
@@ -1539,10 +1590,10 @@
 	  // --- Show which PDF this project belongs to ---
 		const pdfNameLabel = document.getElementById("pdf-name-label");
 		if (project.meta?.originalFileName) {
-		  pdfNameLabel.textContent = `Project for: ${project.meta.originalFileName}`;
+		  pdfNameLabel.textContent = `Projekt für: ${project.meta.originalFileName}`;
 		  pdfNameLabel.style.color = "darkorange";
 		} else {
-		  pdfNameLabel.textContent = "No PDF specified in project";
+		  pdfNameLabel.textContent = "Im Projekt ist kein PDF angegeben.";
 		  pdfNameLabel.style.color = "gray";
 		}
 
@@ -1566,7 +1617,7 @@
 			}
 		  } catch (err) {
 			console.error('File auto-load failed:', err);
-			alert('Could not load the original file automatically. Please open it manually first.');
+			alert('Die Originaldatei konnte nicht automatisch geladen werden. Bitte öffnen Sie sie zunächst manuell.');
 		  }
 		}
 
@@ -1637,7 +1688,7 @@
 		trackTextBoxResize(newBox);
 	  });
 
-	  alert("Project loaded successfully!");
+	  alert("Projekt erfolgreich geladen!");
 	}
 
 	async function promptForMatchingPDF(fileName) {
