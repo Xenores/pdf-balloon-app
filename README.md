@@ -135,14 +135,17 @@ v2.3
 	Changed icons to be more intuitive. 
 	Translated to Deutsch. 
 	..NOT BACKWARD COMPATIBLE..
-	
-	Fixed Issue: Balloon/Text Box position changes after load project. 
-	Issue: Text box size increase when loading project. 
-	
-	************Fixing security error when loading pdf with project. 
-	
-	
-	
+
+v2.4
+	Text Box in loaded JSON project is now same size as when saved. 
+	Minor cosmetic changes. 
+
+
+************Fixing security error when loading pdf with project. 
+
+
+
+
 	
 Note: 
 	The size of bubble is linked to the zoom level. A Text Size = 30 bubble at zoom 400% will be a little smaller than Text Size = 30 bubble at zoom 200%. 
