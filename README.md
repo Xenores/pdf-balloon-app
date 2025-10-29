@@ -141,33 +141,11 @@ v2.4
 	Text Box in loaded JSON project is now same size as when saved. 
 	Minor cosmetic changes. 
 
-
-************Fixing security error when loading pdf with project. 
-
-
-
-
 	
 Note: 
 	The size of bubble is linked to the zoom level. A Text Size = 30 bubble at zoom 400% will be a little smaller than Text Size = 30 bubble at zoom 200%. 
 	(Undo button reloads the all bubble's size for the current zoom)
 	The quality and file size of saved PDF will depend on the zoom level at which it is saved. PDF saved at zoom = 200% is smaller than PDF saved at zoom = 500%.
 	Since app takes time to update edits, continuous and rapid zoom/clicks may cause errors due to incorrect update of history stack. 
-	
-	
-Bugs: 
-	Text Box dimensions resets when zoomed: Fixed
-	Text Boxes are generated dynamically in the end. Therefor, the dimension might differ from what is in the app. - v1.7.1: The difference is now minor.
-	Text box position isnt locked to pdf, so relative position can change if zoom is varied: - v1.7.1 Fixed.
-	Text Box Dimensions dont update in saved pdf after zoom is changed. Workaround- resize after zoom to update. v1.8.2
-	
-	
-
-	
-Prompt: In my web app for ballooning pdf/image file, I added an option to save (save-project-btn) and load (load-project-input)the project as json. The json need to save bubbles, lines, text boxes and zoom level. So later when I load the json after opening the pdf, it will load the bubbles and other items that I can edit. Currently its not working. Code: 
-
-In my web app for ballooning pdf/image file, I want the balloons (with number/text) of a 'Balloon Text Size' to be consistent at different zoom level. Currently, if I make balloon at one zoom, then change zoom and click the new balloon appear to be same size as the first balloon (after scaling for new zoom). BUT sometimes when I click Undo, the size of bubbles that I created changes
-
-
 
 </pre>
