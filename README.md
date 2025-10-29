@@ -1,6 +1,7 @@
 <pre>
 
-
+A web app that can be used to create annotations on CAD drawing (pdf or images)
+https://xenores.github.io/pdf-balloon-app/
 
 v1.0
 	Fixed export pdf being cropped out. 
