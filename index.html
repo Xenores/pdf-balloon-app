@@ -4,12 +4,13 @@
   <meta charset="UTF-8" />
   <title>Bubble Drawing Tool</title>
   <!-- App Icon / Favicon -->
-	<link rel="icon" type="image/png" href="icon.png" />
+	<link rel="icon" type="image/png" href="icon_2.png" />
   <style>	
     body {
       margin: 0;
       padding-top: 0.8in; 
       font-family: sans-serif;
+	  overflow: hidden;
     }
 
     #controls {
@@ -30,7 +31,6 @@
     }
 
     /* Keep the inputs/buttons sized in absolute units as well */
-	/* Default color 85/190/90 or 20/171/39 */
     #controls label { font-size: 10pt; }
     #controls input, #controls button, #controls select {
       font-size: 9pt;
@@ -39,8 +39,8 @@
       box-sizing: border-box;
     }
 	#controls input[type="number"] {
-	  width: 6ch;                   /* narrow width like a mini-control */
-	  height: 0.34in;               /* match other controls */
+	  width: 6ch; 
+	  height: 0.34in; 
 	  padding: 0 0.25em;
 	  border-radius: 4px;           /* rounded like buttons */
 	  border: 1px solid #ccc;
@@ -68,24 +68,30 @@
 			  padding: 0;
 	}
 	#controls button.active-btn {
-	  background: #007bff;   /* blue background */
-	  color: white;          /* white text */
+	  background: #007bff; 
+	  color: white; 
 	  border: 1px solid #0056b3;
 	}
 
 	#controls button.active-btn:hover {
-	  background: #0056b3;   /* darker blue on hover */
+	  background: #0056b3;
 	}
 
     /* canvas and layers */
     #pdf-canvas {
       border: 1px solid #ccc;
-      cursor: crosshair;
+      cursor: grab;
       display: block;
     }
     #container {
       position: relative;
-      display: inline-block;
+      display: block;
+	  /*border: 2px solid red;
+	  background: rgba(255,0,0,0.05); */
+	  width: 100vw;       /* fixed viewport */
+	  height: 100vh;      /* fixed viewport */
+	  overflow: auto;     /* scrollable if content (canvas) is bigger */
+	  cursor: grab;
     }
     #line-layer {
       position: absolute;
@@ -227,6 +233,16 @@
 	  font-size: 14px;
 	  line-height: 1.4;
 	}
+	
+	.help-content i {
+	  display: block;          /* places English text on a new line */
+	  color: #555;             /* subtle gray */
+	  font-style: italic;      /* italic style */
+	  font-size: 0.9em;        /* slightly smaller than main text */
+	  margin-top: 2px;         /* small spacing between DE and EN lines */
+	  line-height: 1.4;
+	}
+
 
 	#help-close {
 	  position: absolute;
@@ -240,6 +256,46 @@
 	#help-close:hover {
 	  color: #000;
 	}
+	
+	.confirm-box {
+	  background: #f0f0f0;              /* neutral gray background */
+	  color: #000;
+	  font-family: system-ui, sans-serif;
+	  border: 1px solid #888;
+	  border-radius: 6px;
+	  padding: 18px 24px;
+	  max-width: 360px;
+	  width: 90%;
+	  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+	  text-align: center;
+	}
+
+	.confirm-box h3 {
+	  margin-top: 0;
+	  font-size: 1.1em;
+	}
+
+	.confirm-buttons {
+	  display: flex;
+	  justify-content: center;
+	  gap: 10px;
+	  margin-top: 16px;
+	}
+
+	.confirm-buttons button {
+	  min-width: 70px;
+	  padding: 4px 12px;
+	  border: 1px solid #777;
+	  border-radius: 3px;
+	  background: #e0e0e0;
+	  font-size: 0.9em;
+	  cursor: pointer;
+	}
+
+	.confirm-buttons button:hover {
+	  background: #d0d0d0;
+	}
+
 
   </style>
 
@@ -266,7 +322,7 @@
 	<input type="file" id="load-project-input" accept=".json" style="display:none;" />
 	
 	<div class="toolbar-group file-group">
-		<span class="group-label">Open:</span>
+		<span class="group-label">Öffnen:</span>
 		<button id="file-picker-btn" title="Datei öffnen"><i class="fa-regular fa-folder-open" style="font-size: 1.4em;"></i></button>
 		<button id="load-project-btn" title="Projekt öffnen"><i class="bi bi-filetype-json" style="font-size: 1.5em;"></i></button>
 	</div>
@@ -274,7 +330,7 @@
 	<span id="pdf-name-label" style="font-weight: bold; color: #007bff; font-size:0.9em;">Keine Datei ausgewählt</span>
 	
 	<div class="toolbar-group file-group">
-		<span class="group-label">Save:</span>
+		<span class="group-label">Speichern:</span>
 		<button id="save-pdf-btn" title="Als PDF speichern"><i class="bi bi-filetype-pdf" style="font-size: 1.5em;"></i></button>
 		<button id="save-project-btn" title="Projekt speichern"><i class="bi bi-floppy" style="font-size: 1.4em;"></i></button>
 	</div>
@@ -313,24 +369,47 @@
  	<div id="help-popup" class="hidden">
 	  <div class="help-content">
 		<span id="help-close">&times;</span>
-		<h2>Blasen-Zeichenwerkzeug – Anleitung</h2>
-		<p><b>Datei auswählen:</b> Klicke auf <b>„Datei auswählen“</b> und wähle eine PDF- oder Bilddatei zum Öffnen aus.</p>
-		<p><b>Ballon erstellen:</b> Klicke an eine beliebige Stelle, um einen Ballon hinzuzufügen. Passe Größe und Farbe mit den Eingabefeldern an. Wähle eine Farbe mit dem Farbwähler (Standard: RGB 20,171,39) oder nutze die Pipette, um eine Farbe direkt aus der PDF zu übernehmen.</p>
-		<p><b>Ballon löschen:</b> Klicke mit der rechten Maustaste auf einen Ballon, um ihn zu löschen. Optional kannst du die verbleibenden Ballons neu nummerieren.</p>
-		<p><b>Ballon bearbeiten:</b> Doppelklicke auf einen Ballon, um seine Nummer zu ändern. Wenn die eingegebene Nummer bereits existiert, werden die vorhandenen Ballons automatisch um 1 erhöht.</p>
-		<p><b>Ballon verschieben:</b> Ziehe den Ballon mit der Maus, um ihn zu verschieben. Ein Raster sorgt dafür, dass er sauber ausgerichtet wird.</p>
-		<p><b>Ballon mit Linie:</b> Aktiviere den <b>„Linienmodus“</b>, um Linien zu Ballons hinzuzufügen. Deaktiviere ihn, um nur Ballons zu erstellen.</p>
-		<p><b>Textfeld:</b> Aktiviere den <b>Textfeldmodus</b>, klicke an eine beliebige Stelle, um ein Textfeld zu erstellen, und passe die Größe bei Bedarf an. Drücke <b>Entf</b>, um das Textfeld zu löschen.</p>
-		<p><b>Projekt speichern:</b> Speichert alle Anmerkungen und die aktuelle Zoomstufe in einer JSON-Datei, um später weiterzuarbeiten.</p>
-		<p><b>Projekt öffnen“:</b> Klicke auf <b>„Projekt öffnen“</b>, wähle die JSON-Datei und anschließend die PDF-Datei aus. Um ein Projekt auf eine andere Datei zu laden:</p>
+		<h2>Blasen-Zeichenwerkzeug – Anleitung<br><i>Balloon Drawing Tool – Guide</i></h2>
+		<p><b>Datei öffnen:</b> Klicke auf <b>„Datei öffnen“</b> und wähle eine PDF- oder Bilddatei zum Öffnen aus. Nachdem die Datei geöffnet wurde, klicken und ziehen Sie, um zu scrollen.<br>
+		<i><b>Select File:</b> Click <b>“Select File”</b> and choose a PDF or image file to open. Once loaded, click and drag to scroll.</i></p>
+
+		<p><b>Ballon erstellen:</b> <b>Strg + Klick</b> an einer beliebigen Stelle, um einen Ballon hinzuzufügen. Passe Größe und Farbe mit den Eingabefeldern an. Wähle eine Farbe mit dem Farbwähler (Standard: RGB 20,171,39) oder nutze die Pipette, um eine Farbe direkt aus der PDF zu übernehmen.<br>
+		<i><b>Create Balloon:</b> <b>Ctrl + Click</b> anywhere to add a balloon. Adjust its size and color using the input fields. Choose a color with the color picker (default: RGB 20,171,39) or use the eyedropper tool to pick a color directly from the PDF.</i></p>
+
+		<p><b>Ballon löschen:</b> Klicke mit der rechten Maustaste auf einen Ballon, um ihn zu löschen. Optional kannst du die verbleibenden Ballons neu nummerieren.<br>
+		<i><b>Delete Balloon:</b> Right-click on a balloon to delete it. Optionally, you can renumber the remaining balloons.</i></p>
+
+		<p><b>Ballon bearbeiten:</b> Doppelklicke auf einen Ballon, um seine Nummer zu ändern. Wenn die eingegebene Nummer bereits existiert, werden die vorhandenen Ballons automatisch um 1 erhöht.<br>
+		<i><b>Edit Balloon:</b> Double-click a balloon to change its number. If the entered number already exists, existing balloons will automatically be shifted up by 1.</i></p>
+
+		<p><b>Ballon verschieben:</b> Ziehe den Ballon mit der Maus, um ihn zu verschieben. Ein Raster sorgt dafür, dass er sauber ausgerichtet wird.<br>
+		<i><b>Move Balloon:</b> Drag the balloon with your mouse to reposition it. A grid helps keep it neatly aligned.</i></p>
+
+		<p><b>Ballon mit Linie:</b> Aktiviere den <b>„Linienmodus“</b>, um Linien zu Ballons hinzuzufügen. Deaktiviere ihn, um nur Ballons zu erstellen.<br>
+		<i><b>Balloon with Line:</b> Enable <b>“Line Mode”</b> to draw connecting lines to balloons. Disable it to create balloons only.</i></p>
+
+		<p><b>Textfeld:</b> Aktiviere den <b>Textfeldmodus</b>, klicke an eine beliebige Stelle, um ein Textfeld zu erstellen, und passe die Größe bei Bedarf an. Drücke <b>Entf</b>, um das Textfeld zu löschen.<br>
+		<i><b>Text Field:</b> Enable <b>Text Field Mode</b>, click anywhere to create a text box, and resize it as needed. Press <b>Delete</b> to remove it.</i></p>
+
+		<p><b>Projekt speichern:</b> Speichert alle Anmerkungen und die aktuelle Zoomstufe in einer JSON-Datei, um später weiterzuarbeiten.<br>
+		<i><b>Save Project:</b> Saves all annotations and the current zoom level into a JSON file so you can continue later.</i></p>
+
+		<p><b>Projekt öffnen:</b> Klicke auf <b>„Projekt öffnen“</b>, wähle die JSON-Datei und anschließend die PDF-Datei aus. Um ein Projekt auf eine andere Datei zu laden:<br>
+		<i><b>Open Project:</b> Click <b>“Open Project”</b>, select the JSON file, and then the PDF. To load a project onto a different file:</i></p>
+		
 		<ol class="instruction-list">
-		  <li>Öffne die neue Datei.</li>
-		  <li>Klicke auf <b>„Projekt öffnen“</b> und wähle die JSON-Datei.</li>
-		  <li>Klicke auf <b>Abbrechen</b>, wenn nach der PDF gefragt wird.</li>
-		  <li>Bestätige alle Meldungen mit <b>OK</b>.</li>
-		</ol>
-		<p><b>Als PDF speichern:</b> Erstellt eine PDF mit allen Anmerkungen. Die Zoomstufe beeinflusst die Bildqualität — höherer Zoom = bessere Qualität.</p>
-		<p><b>Rückgängig:</b> Klicke auf die Schaltfläche „Rückgängig“, um die letzte Aktion rückgängig zu machen.</p>
+			<li>Öffne die neue Datei.<br><i>Open the new file.</i></li>
+			<li>Klicke auf <b>„Projekt öffnen“</b> und wähle die JSON-Datei.<br><i>Click <b>“Open Project”</b> and select the JSON file.</i></li>
+			<li>Klicke auf <b>Abbrechen</b>, wenn nach der PDF gefragt wird.<br><i>Click <b>Cancel</b> when prompted for a PDF.</i></li>
+			<li>Bestätige alle Meldungen mit <b>OK</b>.<br><i>Confirm all messages with <b>OK</b>.</i></li>
+		 </ol>
+		
+		<p><b>Als PDF speichern:</b> Erstellt eine PDF mit allen Anmerkungen. Die Zoomstufe beeinflusst die Bildqualität — höherer Zoom = bessere Qualität.<br>
+		<i><b>Save as PDF:</b> Creates a PDF containing all annotations. The zoom level affects image quality — higher zoom = better quality.</i></p>
+
+		<p><b>Rückgängig:</b> Klicke auf die Schaltfläche „Rückgängig“, um die letzte Aktion rückgängig zu machen.<br>
+		<i><b>Undo:</b> Click the “Undo” button to revert the last action.</i></p>
+
 	  </div>
 	</div>
   <script>
@@ -376,6 +455,46 @@
 		  throw new Error("Firefox detected. App blocked.");
 		}
 	  })();
+
+// ------------------ Drag-to-Scroll (Pan) Feature ------------------ //
+	let isPanning = false;
+	let panStartX, panStartY; 
+	let panScrollLeft, panScrollTop;
+
+	const container = document.getElementById("container");
+	
+	container.addEventListener("mousedown", (e) => {
+	  // only activate panning if CTRL is NOT pressed and not in textbox mode
+	  if (e.ctrlKey || isTextBoxMode) return;
+
+	  isPanning = true;
+	  panStartX = e.pageX - container.offsetLeft;
+	  panStartY = e.pageY - container.offsetTop;
+	  panScrollLeft = container.scrollLeft;
+	  panScrollTop = container.scrollTop;
+	});
+
+	container.addEventListener("mouseleave", () => {
+	  isPanning = false;
+	  container.style.cursor = "grab";
+	});
+
+	container.addEventListener("mouseup", () => {
+	  isPanning = false;
+	  container.style.cursor = "grab";
+	  canvas.style.cursor = "grab";
+	});
+
+	container.addEventListener("mousemove", (e) => {
+	  if (!isPanning) return;
+	  e.preventDefault();
+	  const x = e.pageX - container.offsetLeft;
+	  const y = e.pageY - container.offsetTop;
+	  const walkX = (x - panStartX);
+	  const walkY = (y - panStartY);
+	  container.scrollLeft = panScrollLeft - walkX;
+	  container.scrollTop = panScrollTop - walkY;
+	});
 
 // ---------- file loading ----------
 	
@@ -798,27 +917,51 @@
 			}
 		});
 
-      balloon.addEventListener('contextmenu', e => {
+	  balloon.addEventListener('contextmenu', e => {
 		  e.preventDefault();
 		  e.stopPropagation();
 
-		  const shouldRenumber = confirm('Ballons nach dem Löschen neu nummerieren?');
-		  const deletedLabel = balloon.textContent;
-		  
-		  // remove balloon and its connected lines
-		  balloon.remove();
-		  removeLinesConnectedTo(balloon);
-		  
-		  // clear pendingBalloon if it points to the deleted balloon
-		  if (pendingBalloon?.balloon === balloon) {
-			pendingBalloon = null;
-		  }
-		  
-		  if (shouldRenumber) {
-			renumberAfterDeletion(deletedLabel);
-		  }
+		  // Create popup using same modal base, but simpler confirm-like style
+		  const popup = document.createElement('div');
+		  popup.id = 'help-popup'; // reuse same overlay
+		  popup.innerHTML = `
+			<div class="confirm-box">
+			  <h3>Ballon löschen</h3>
+			  <p>Ballons nach dem Löschen neu nummerieren?</p>
+			  <div class="confirm-buttons">
+				<button id="confirm-yes">Ja</button>
+				<button id="confirm-no">Nein</button>
+				<button id="confirm-cancel">Abbrechen</button>
+			  </div>
+			</div>
+		  `;
+		  document.body.appendChild(popup);
 
-		  saveStateToHistory();
+		  const cleanup = () => popup.remove();
+
+		  popup.querySelector('#confirm-yes').onclick = () => {
+			cleanup();
+			proceedDeletion(true);
+		  };
+		  popup.querySelector('#confirm-no').onclick = () => {
+			cleanup();
+			proceedDeletion(false);
+		  };
+		  popup.querySelector('#confirm-cancel').onclick = cleanup;
+
+		  function proceedDeletion(shouldRenumber) {
+			const deletedLabel = balloon.textContent;
+			balloon.remove();
+			removeLinesConnectedTo(balloon);
+
+			if (pendingBalloon?.balloon === balloon) {
+			  pendingBalloon = null;
+			}
+			if (shouldRenumber) {
+			  renumberAfterDeletion(deletedLabel);
+			}
+			saveStateToHistory();
+		  }
 		});
 
     }
@@ -971,30 +1114,31 @@
 	});
 
     canvas.addEventListener('click', e => {
-	  
-	  if (isTextBoxMode) return; // skip balloon creation if text mode is on
-      
-	  const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      const textSize = parseInt(document.getElementById('text-size').value) || 16;
-	  const scaledFontSize = textSize * scale;
-	  
-      if (leaderLineMode) {
-        if (!pendingBalloon || !pendingBalloon.balloon?.isConnected) {
-		  // Only create balloon, DO NOT save yet
-          const balloon = createNewBalloon(x, y, scaledFontSize);
-          pendingBalloon = { balloon, centerX: x, centerY: y };
-		  //saveStateToHistory();
-        } else {
-          drawLineBetween(pendingBalloon.centerX, pendingBalloon.centerY, x, y, pendingBalloon.balloon.style.backgroundColor, pendingBalloon.balloon, null);
-          pendingBalloon = null;
-		  saveStateToHistory();
-        }
-      } else {
-        createNewBalloon(x, y, scaledFontSize);
-		saveStateToHistory();
-      }
+	  if (e.ctrlKey && e.button === 0) {
+		  if (isTextBoxMode) return; // skip balloon creation if text mode is on
+		  
+		  const rect = canvas.getBoundingClientRect();
+		  const x = e.clientX - rect.left;
+		  const y = e.clientY - rect.top;
+		  const textSize = parseInt(document.getElementById('text-size').value) || 16;
+		  const scaledFontSize = textSize * scale;
+		  
+		  if (leaderLineMode) {
+			if (!pendingBalloon || !pendingBalloon.balloon?.isConnected) {
+			  // Only create balloon, DO NOT save yet
+			  const balloon = createNewBalloon(x, y, scaledFontSize);
+			  pendingBalloon = { balloon, centerX: x, centerY: y };
+			  //saveStateToHistory();
+			} else {
+			  drawLineBetween(pendingBalloon.centerX, pendingBalloon.centerY, x, y, pendingBalloon.balloon.style.backgroundColor, pendingBalloon.balloon, null);
+			  pendingBalloon = null;
+			  saveStateToHistory();
+			}
+		  } else {
+			createNewBalloon(x, y, scaledFontSize);
+			saveStateToHistory();
+		  }
+		}
     });
 	
 	// -------------Text Box Size Input -------------------------- //
@@ -1037,6 +1181,7 @@
 	  });
 
 	  tb.addEventListener("mousedown", e => {
+		e.stopPropagation();
 		const rect = tb.getBoundingClientRect();
 		const nearCorner = e.offsetX > rect.width - 12 && e.offsetY > rect.height - 12;
 		if (nearCorner) return; // let browser resize
@@ -1644,6 +1789,7 @@
 			  const matchingPDF = await promptForMatchingPDF(project.meta.originalFileName);
 			  if (matchingPDF) {
 				await openPDFFile(matchingPDF);
+				exportFilenameInput.value = `${originalFileName}_bubble drawing`;
 			  } else {
 				alert(`PDF "${project.meta.originalFileName}" not found. Please open it manually first.`);
 			  }
@@ -1651,6 +1797,7 @@
 			  const matchingImage = await promptForMatchingImage(project.meta.originalFileName);
 			  if (matchingImage) {
 				await openImageFile(matchingImage);
+				exportFilenameInput.value = `${originalFileName}_bubble drawing`;
 			  } else {
 				alert(`Image "${project.meta.originalFileName}" not found. Please open it manually first.`);
 			  }
