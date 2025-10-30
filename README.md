@@ -138,8 +138,17 @@ v2.3
 	..NOT BACKWARD COMPATIBLE..
 
 v2.4
-	Text Box in loaded JSON project is now same size as when saved. 
+	Fixed issue: Text box size increase in the opened project. 
+	Fixed export-filename not being updated after loading a project. 
 	Minor cosmetic changes. 
+	
+v2.5
+	Now balloons are created with ctrl + mouseclick. 
+	Click and drag now scrolls the page. 
+
+v2.6
+	Added English instructions
+	Added cancel in delete window popup to cancel operation. 
 
 	
 Note: 
