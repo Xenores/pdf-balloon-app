@@ -149,6 +149,8 @@ v2.5
 v2.6
 	Added English instructions
 	Added cancel in delete window popup to cancel operation. 
+	Fixed issues caused by incomplete rendering. 
+	Fixed issue of bubble and line position not saving while zooming. 
 
 	
 Note: 
