@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <title>Bubble Drawing Tool</title>
   <!-- App Icon / Favicon -->
-	<link rel="icon" type="image/png" href="icon_2.png" />
+	<link rel="icon" type="image/png" href="icon.png" />
   <style>	
     body {
       margin: 0;
@@ -563,6 +563,7 @@
 // renderPage now RETURNS a promise so callers can chain after rendering completes
     function renderPage(num) {
 	  if (!pdfDoc) return Promise.resolve();
+	  isRendering = true;
 	  return pdfDoc.getPage(num).then(page => {
 		const unscaledViewport = page.getViewport({ scale: 1.0 });
 		originalPageWidth = unscaledViewport.width;
@@ -580,22 +581,31 @@
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 		ctx.fillStyle = 'white';
 		ctx.fillRect(0, 0, canvas.width, scaledTopWhiteSpace);
-
-		// render the PDF page below the header
-		const renderContext = { canvasContext: ctx, viewport: viewport };
+		
 		ctx.save();
 		ctx.translate(0, scaledTopWhiteSpace);
+		
+		const renderContext = { canvasContext: ctx, viewport: viewport };
 		const renderPromise = page.render(renderContext).promise;
-		renderPromise.then(() => ctx.restore());
+		
+		renderPromise
+		  .then(() => {
+			ctx.restore();
+			isRendering = false;
 
-		// adjust overlay sizes (they share the same coordinate space as canvas)
-		balloonLayer.style.width = canvas.width + 'px';
-		balloonLayer.style.height = canvas.height + 'px';
-		lineLayer.setAttribute('width', canvas.width);
-		lineLayer.setAttribute('height', canvas.height);
-		lineLayer.style.width = canvas.width + 'px';
-		lineLayer.style.height = canvas.height + 'px';
-
+			// adjust overlay sizes
+			balloonLayer.style.width = canvas.width + 'px';
+			balloonLayer.style.height = canvas.height + 'px';
+			lineLayer.setAttribute('width', canvas.width);
+			lineLayer.setAttribute('height', canvas.height);
+			lineLayer.style.width = canvas.width + 'px';
+			lineLayer.style.height = canvas.height + 'px';
+		  })
+		  .catch(err => {
+			console.error('Render error:', err);
+			isRendering = false; // ⚠️ ensure reset on error
+		  });
+		
 		return renderPromise;
 	  });
 	}
@@ -1084,7 +1094,8 @@
 
       let isDragging = false;
       handle.addEventListener('mousedown', e => { e.stopPropagation(); isDragging = true; });
-      document.addEventListener('mousemove', e => {
+      
+	  document.addEventListener('mousemove', e => {
         if (!isDragging) return;
         const rect = canvas.getBoundingClientRect();
         const nx = e.clientX - rect.left;
@@ -1092,6 +1103,17 @@
         handle.setAttribute('cx', nx);
         handle.setAttribute('cy', ny);
         onDrag(nx, ny);
+		// --- NEW: update normalized coordinates so zoom stays accurate ---
+		lines.forEach(line => {
+			if (line.fromHandle === handle && !line.fromBalloon) {
+			  line.fromXNorm = nx / canvas.width;
+			  line.fromYNorm = ny / canvas.height;
+			}
+			if (line.toHandle === handle && !line.toBalloon) {
+			  line.toXNorm = nx / canvas.width;
+			  line.toYNorm = ny / canvas.height;
+			}
+		});
       });
       document.addEventListener('mouseup', () => {
         if (isDragging) {
@@ -1496,40 +1518,34 @@
 
 	  // Helper to scale balloons based on normalized coordinates
 	  function scaleBalloon(b, oldW, oldH, newW, newH) {
-		// Save normalized position once
-		if (!b.dataset.xNorm || !b.dataset.yNorm) {
 		  const rect = b.getBoundingClientRect();
 		  const parentRect = balloonLayer.getBoundingClientRect();
 		  const centerX = rect.left - parentRect.left + rect.width / 2;
 		  const centerY = rect.top - parentRect.top + rect.height / 2;
+
+		  // Always update normalized position (not just first time)
 		  b.dataset.xNorm = centerX / oldW;
 		  b.dataset.yNorm = centerY / oldH;
 
-		  const fs = parseFloat(window.getComputedStyle(b).fontSize) || 16;
-		  b.dataset.fontSizeBase = fs / scale;
+		  // Save base font size only once
+		  if (!b.dataset.fontSizeBase) {
+			const fs = parseFloat(window.getComputedStyle(b).fontSize) || 16;
+			b.dataset.fontSizeBase = fs / scale;
+		  }
+
+		  // Compute new exact center using normalized coords
+		  const newCenterX = parseFloat(b.dataset.xNorm) * newW;
+		  const newCenterY = parseFloat(b.dataset.yNorm) * newH;
+
+		  // Scale font proportionally
+		  const baseFS = parseFloat(b.dataset.fontSizeBase) || 16;
+		  b.style.fontSize = (baseFS * newScale) + 'px';
+
+		  // Measure balloon after font scaling
+		  const newRect = b.getBoundingClientRect();
+		  b.style.left = newCenterX - newRect.width / 2 + 'px';
+		  b.style.top  = newCenterY - newRect.height / 2 + 'px';
 		}
-
-		// Compute new exact center using normalized coords
-		const centerX = parseFloat(b.dataset.xNorm) * newW;
-		const centerY = parseFloat(b.dataset.yNorm) * newH;
-
-		// Compute scale ratio for font/size
-		const sx = oldW ? (newW / oldW) : 1;
-		const sy = oldH ? (newH / oldH) : 1;
-		// const s = (sx + sy) / 2; // you have it if you need uniform scale
-
-		// Scale font proportionally (use newScale so logical size * scale)
-		const baseFS = parseFloat(b.dataset.fontSizeBase) || 16;
-		b.style.fontSize = (baseFS * newScale) + 'px';
-
-		// Measure balloon after font scaling
-		const rect = b.getBoundingClientRect();
-		const newLeft = centerX - rect.width / 2;
-		const newTop  = centerY - rect.height / 2;
-
-		b.style.left = newLeft + 'px';
-		b.style.top  = newTop + 'px';
-	  }
 
 	  // Helper to scale textboxes
 	  function scaleTextbox(tb, canvasWidth, canvasHeight) {
@@ -1662,15 +1678,18 @@
 
     // ---------- zoom UI wiring ---------- //
     zoomRange.addEventListener('input', () => {
-      const val = Number(zoomRange.value) / 100;
+      if (isRendering) return;
+	  const val = Number(zoomRange.value) / 100;
       setPdfScale(val);
     });
     zoomOutBtn.addEventListener('click', () => {
-      const newPerc = Math.max(10, Math.round(scale*100) - 10);
+      if (isRendering) return;
+	  const newPerc = Math.max(10, Math.round(scale*100) - 10);
       setPdfScale(newPerc / 100);
     });
     document.getElementById('zoom-in').addEventListener('click', () => {
-      const newPerc = Math.min(500, Math.round(scale*100) + 10);
+      if (isRendering) return;
+	  const newPerc = Math.min(500, Math.round(scale*100) + 10);
       setPdfScale(newPerc / 100);
     });
 
