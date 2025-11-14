@@ -69,27 +69,6 @@ Export to a PDF with annotations rendered at the current zoom level.
 
 ---
 
-## Running Locally
-
-```bash
-git clone https://github.com/YourUsername/pdf-balloon-app.git
-cd pdf-balloon-app
-```
-
-Then either:
-
-* Open `index.html` directly in a browser
-  **or**
-* Serve with a local server (recommended to avoid PDF.js CORS issues):
-
-```bash
-npx http-server
-```
-
-Then open the URL it gives you (usually [http://localhost:8080](http://localhost:8080)).
-
----
-
 ## License
 
 MIT License — free to modify, fork, or use.
