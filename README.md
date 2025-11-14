@@ -81,7 +81,7 @@ MIT License — free to modify, fork, or use.
 Built as part of an internship initiative to simplify CAD drawing annotation workflows.
 
 GitHub: [https://github.com/Xenores](https://github.com/Xenores)
-LinkedIn: [https://linkedin.com/in/YourProfile](https://linkedin.com/in/YourProfile)
+LinkedIn: [https://linkedin.com/in/YourProfile](https://linkedin.com/in/aravind-k-s)
 
 ---
 
