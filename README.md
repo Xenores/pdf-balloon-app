@@ -101,7 +101,7 @@ MIT License — free to modify, fork, or use.
 **Aravind Kavanal Sreeni**
 Built as part of an internship initiative to simplify CAD drawing annotation workflows.
 
-GitHub: [https://github.com/YourUsername](https://github.com/YourUsername)
+GitHub: [https://github.com/Xenores](https://github.com/Xenores)
 LinkedIn: [https://linkedin.com/in/YourProfile](https://linkedin.com/in/YourProfile)
 
 ---
