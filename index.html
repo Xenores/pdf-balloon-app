@@ -451,7 +451,7 @@
 		const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
 		if (isFirefox) {
 		  alert("?? This app does not work in Firefox. Please use Chrome, Edge, or another Chromium-based browser.");
-		  document.body.innerHTML = "<h2 style='color:red; text-align:center; margin-top:2em;'>This app does not work in Firefox. Please switch your browser.</h2>";
+		  document.body.innerHTML = "<h2 style='color:red; text-align:center; margin-top:2em;'>This app does not work in Firefox. Please open in a Chrome, Edge, Brave or another Chromium-based browser.</h2>";
 		  throw new Error("Firefox detected. App blocked.");
 		}
 	  })();
