@@ -69,12 +69,6 @@ Export to a PDF with annotations rendered at the current zoom level.
 
 ---
 
-## License
-
-MIT License — free to modify, fork, or use.
-
----
-
 ## Author
 
 **Aravind Kavanal Sreeni**
