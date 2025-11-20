@@ -3,7 +3,7 @@
 
 *A web app for creating annotations on CAD drawings (PDF or image files)*
 
-👉 **Live demo:** [https://xenores.github.io/pdf-balloon-app/](https://xenores.github.io/pdf-balloon-app/)
+**Live demo:** [https://xenores.github.io/pdf-balloon-app/](https://xenores.github.io/pdf-balloon-app/)
 
 ---
 
@@ -21,7 +21,7 @@ Built as a solution to simplify annotation workflows during my internship, the a
 * Add numbered annotation balloons
 * Drag & reposition balloons (grid snapping supported)
 * Change balloon color, size, font
-* Create leader lines attached to balloons or free points
+* Create leader lines attached to balloons
 * Draggable line endpoints
 * Add editable text boxes
 * Working zoom with proper annotation scaling
@@ -49,7 +49,7 @@ Click **“Select File”** and choose a PDF or image.
 ### 3. Leader Lines
 
 * Enable **Line Mode**
-* Drag from a balloon to any point
+* After pacing a balloon, hold **Ctrl + Click** to create a line
 * Move endpoints using handles
 
 ### 4. Text Box Mode
